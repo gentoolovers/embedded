@@ -121,7 +121,7 @@ ln -s target link_name
 注意:
 +对链接文件的操作,其实是对目标文件的操作
 + 目标文件最好用绝对路径
-+ 软链接是新文件,有新的 inode 编号
+# 软链接是新文件,有新的 inode 编号
 **** 硬链接
 ln target link_name
 文件重命名,同时操作 target 和 link_name
