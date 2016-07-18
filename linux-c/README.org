@@ -6,23 +6,22 @@ uname -r: 查看内核版本(-a)信息更全
 ** pstree
 pstree: 以树形显示出进程间的关系
 ** dpkg
-dpkg -L <package>:  列出安装软件信息
-dpkg -s <package>:  状态
-dpkg -i <package>:  安装
-dpkg -p <package>:  删除,包括依赖
+-dpkg -L <package>:  列出安装软件信息
+-dpkg -s <package>:  状态
+-dpkg -i <package>:  安装
+-dpkg -p <package>:  删除,包括依赖
 ** 软件源
-软件源配置文件: /etc/apt/sources.list
-本地软件资源列表:/var/lib/apt/lists
-软件缓冲区,即 apt-get install 目录:/var/cache/apt/archives
+-软件源配置文件: /etc/apt/sources.list
+-本地软件资源列表:/var/lib/apt/lists
+-软件缓冲区,即 apt-get install 目录:/var/cache/apt/archives
 ** apt
-apt-get install <package>            :安装软件
-apt-get remove --purge <package>     :彻底删除
-       
-apt-cache policy <package> :查询安装状态
-apt-cache depends          :查询安装状态
-apt-cache redpends         :查询被哪些安装包依赖
-apt-cache search           :查找软件包
-apt-cache  show             :获取软件包详细信息
+-apt-get install <package>            :安装软件
+-apt-get remove --purge <package>     :彻底删除      
+-apt-cache policy <package> :查询安装状态
+-apt-cache depends          :查询安装状态
+-apt-cache redpends         :查询被哪些安装包依赖
+-apt-cache search           :查找软件包
+-apt-cache  show             :获取软件包详细信息
 ** 重定向
 2> :输出错误信息
 &> :正确与错误都重定向
@@ -41,7 +40,6 @@ od -c 查看文件字符数
 ** grep
 grep "xxx" * -nR :在当前目录下递归查找 xxx ,-n 为显示行号
 grep "^xxx" /usr  -nR :在/user 目录下查找以 xxx 开头的行
-
 
 * 第二天<2016-07-17 Sun>
 ** 用户管理
@@ -89,14 +87,42 @@ ps -aux | grep "a.out" 查看 a.out 进程的状态
 *** top
 top :监视进程
 *** 文件类型
-b :块输入输出设备文件
-c :原始输入/输出设备文件
-d :包含若干文件或子目录
-- :ASCII 文本文件,二进制可执行文件,以及硬链接
-l :之保留文件地址,而不是文件本身(链接文件)
-s :用于进程间通信,两台计算机间通讯的应用程序接口(API)
-p :一种进程通讯的机制,用于进程间通信的暂时文件
+- b :块输入输出设备文件
+- c :原始输入/输出设备文件
+- d :包含若干文件或子目录 
+- - :ASCII 文本文件,二进制可执行文件,以及硬链接
+- l :之保留文件地址,而不是文件本身(链接文件)
+- s :用于进程间通信,两台计算机间通讯的应用程序接口(API)
+- p :一种进程通讯的机制,用于进程间通信的暂时文件
+** 文件操作
+*** 字符串裁剪 
+cut -d "分割符,如(:)" -f <区域>  <要操作的文件> 
+*** 只显示文件第 n 行
+head -n <文件名> | tail -1
 
+grep "^root:" /etc/passwd -n | cut -d ":" -f 1
+cut -d ":" -f 1 /etc/passwd | grep "^linux$" -n |cut -d ":" -f 1
 
-
-
+*** 文件权限
+ umask :文件权限掩码(以 002 为例)
+ 0666 & ~umask 
+ 110 110 110
+ 111 111 101 
+=
+ 110 110 100 
+**** chown  
+ chown:修改文件拥有者,以及所属组
+ chown newuser:newgroup file
+**** chgrp
+chgrp <组名> 文件 
+*** 链接文件
+**** 软链接
+ln -s target link_name
+注意:
+1. 对链接文件的操作,其实是对目标文件的操作
+2. 目标文件最好用绝对路径
+3. 软链接是新文件,有新的 inode 编号
+**** 硬链接
+ln target link_name
+文件重命名,同时操作 target 和 link_name
+硬链接不可以跨文件系统
