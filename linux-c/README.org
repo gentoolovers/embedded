@@ -1,0 +1,102 @@
+* 第一天<2016-07-14 Thu>
+** GPL
+GPL:  保护自由软件的协议
+** uname
+uname -r: 查看内核版本(-a)信息更全
+** pstree
+pstree: 以树形显示出进程间的关系
+** dpkg
+dpkg -L <package>:  列出安装软件信息
+dpkg -s <package>:  状态
+dpkg -i <package>:  安装
+dpkg -p <package>:  删除,包括依赖
+** 软件源
+软件源配置文件: /etc/apt/sources.list
+本地软件资源列表:/var/lib/apt/lists
+软件缓冲区,即 apt-get install 目录:/var/cache/apt/archives
+** apt
+apt-get install <package>            :安装软件
+apt-get remove --purge <package>     :彻底删除
+       
+apt-cache policy <package> :查询安装状态
+apt-cache depends          :查询安装状态
+apt-cache redpends         :查询被哪些安装包依赖
+apt-cache search           :查找软件包
+apt-cache  show             :获取软件包详细信息
+** 重定向
+2> :输出错误信息
+&> :正确与错误都重定向
+>> :追加在文件后面
+>  :相当于新建文件
+** df
+df [-a|-T|-h|-k] Filesystem : 查看磁盘空间
+    -a : 显示所有物理文件系统使用情况
+    -h : 以兆字节显示
+    -T : 显示文件系统类型
+    -k : 以千字节为单位显示
+** du
+du:查看目录
+** od
+od -c 查看文件字符数
+** grep
+grep "xxx" * -nR :在当前目录下递归查找 xxx ,-n 为显示行号
+grep "^xxx" /usr  -nR :在/user 目录下查找以 xxx 开头的行
+
+
+* 第二天<2016-07-17 Sun>
+** 用户管理
+*** 用户相关文件
+/etc/adduser.conf :用户属性默认值
+/etc/shadow       :用户密码相关
+/etc/passwd
+/etc/group
+*** 用户相关命令
+id :查看当前登录用户的属性
+man 5:查看文件
+**** 新建用户
+adduser --ingroup test test:新建 test 用户,加入 test 组
+adduser -gid 1002 test
+addgroup :新建组 
+vipw :
+**** 改变用户属性
+usermod -g test test:改变用户所数组
+usermod -d /home/newname -m -l newname oldname:-d 新的家目录 -m 原家
+目录重命名 -l 新的名字
+usermod -a -G newgroup  user :给 user 用户附加一个 newgroup
+
+newgrp newgroup :临时改变组
+**** 删除用户
+deluser --remove-home user  :删 user 用户同时删除家目录
+delgroup groupname
+** 进程管理
+*** 进程状态标志
+D: 不可中断的静止
+R:正在执行中
+S:阻塞状态
+T:暂停执行
+Z:不存在但暂时无法消除
+<:高级优先的进程
+N:低优先级的进程
+L:有内存分页分配并锁在内存中
+*** ps 
+ps :查看进程
+  -A   列出所有进程
+  -au  显示较为详细的资讯 
+  -aux 显示所有包含其他使用者的进程
+ 
+ps -ef | grep "a.out" 查看 a.out 进程
+ps -aux | grep "a.out" 查看 a.out 进程的状态
+*** top
+top :监视进程
+*** 文件类型
+b :块输入输出设备文件
+c :原始输入/输出设备文件
+d :包含若干文件或子目录
+- :ASCII 文本文件,二进制可执行文件,以及硬链接
+l :之保留文件地址,而不是文件本身(链接文件)
+s :用于进程间通信,两台计算机间通讯的应用程序接口(API)
+p :一种进程通讯的机制,用于进程间通信的暂时文件
+
+
+
+
