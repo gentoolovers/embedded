@@ -1,4 +1,4 @@
-* 第一天<2016-07-14 Thu>
+* 第一天<2016-07-15 Fri>
 ** GPL
 GPL:  保护自由软件的协议  
 ** uname
@@ -41,7 +41,7 @@ od -c 查看文件字符数
 grep "xxx" * -nR :在当前目录下递归查找 xxx ,-n 为显示行号  
 grep "^xxx" /usr  -nR :在/user 目录下查找以 xxx 开头的行  
 
-* 第二天<2016-07-17 Sun>
+* 第二天<2016-07-18 Mon>
 ** 用户管理
 *** 用户相关文件
 /etc/adduser.conf :用户属性默认值  
@@ -101,11 +101,12 @@ grep "^root:" /etc/passwd -n | cut -d ":" -f 1
 cut -d ":" -f 1 /etc/passwd | grep "^linux$" -n |cut -d ":" -f 1  
 *** 文件权限
  umask :文件权限掩码(以 002 为例)  
- 0666 & ~umask   
- 110 110 110  
- 111 111 101   
-=  
- 110 110 100   
+| 0666 | &   | ~umask |     
+|--+------+-------+---|
+| 110  | 110 | 110    |  
+| 111  | 111 | 101    |
+| =  
+| 110  | 110 | 100    |      
 **** chown  
  chown:修改文件拥有者,以及所属组  
  chown newuser:newgroup file  
@@ -119,6 +120,789 @@ ln -s target link_name
 + 目标文件最好用绝对路径  
 + 软链接是新文件,有新的 inode 编号  
 **** 硬链接
-ln target link_name  
-文件重命名,同时操作 target 和 link_name  
-硬链接不可以跨文件系统  
+ln target link_name   
+文件重命名,同时操作 target 和 link_name   
+硬链接不可以跨文件系统   
+
+* 第三天<2016-07-19 Tue>
+** 位置变量
++ $0 :包含脚本文件名
++ $1,$2,...$9 :分别表示第一个到第九个命令行参数
++ $# :命令行参数的个数
++ $@,$* :所有命令行参数
++ $? :前一个命令的推出状态
++ $$ :正在执行进程的 ID 号
+** read
+read var :从标准输入中读取一行,并复制给变量(var)  
+** expr
+算术运算符两边必须有空格  
+乘法需要转义  
+** 字符串测试
++ s1=s2 :测试字符串是否完全一样
++ s1!=s2 :测试两个字符串是否有差异
++ -z s1 :测试 s1 字符串是否为零
++ -n s1 :测试字符串是否不为零
+** 整数测试
++ a -eq b :测试 a 与 b 是否相等
++ a -ne b :测试 a 与 b 是否不想等
++ a -gt b :测试 a 是否大于 b
++ a -ge b :测试 a 是否大于等于 b
++ a -lt b :测试 a 是否小于 b
++ a -le b :测试 a 是否小于等于 b
+** 文件测试
++ -d name :测试 name 是否为一个目录
++ -e name :测试文件是否存在
++ -f name :测试 name 是否为普通文件
++ -L name :测试 name 是否为符号链接
++ -r name :测试文件是否存在且为可读
++ -w name :测试文件是否存在且为可写
++ -x name :测试文件是否存在且为可执行
++ -s name :测试文件是否存在且长度不为零
++ f1 -nt f2 :测试 f1 是否比 f2 新
++ f1 -ot f2 :测试 f1 是否比 f2 旧
+** if
+（一）基本结构 if…then…fi
+         语法结构:
+         if    表达式
+         		then  命令表
+         fi     
+
+** case
+ case   字符串变量   in
+            模式 1)
+                       命令表 1
+                        ;;
+            模式 2 | 模式 3)   
+                       命令表 2
+                        ;;
+             ……
+            模式 n)
+                       命令表 n
+                        ;;
+     esac
+** for 
+ 语法格式：
+			  for   变量名   in   单词表
+              do
+                      命令表
+               done
+
+如果单词表是命令行上的所有位置参数时, 可以在 for 语句中
+省略 “in  单词表” 部分。 
+
+for (( ;; )) :表示死循环
+** while 
+语法结构为：      		  while     命令或表达式
+                              do
+                                       命令表
+                              done
+** 函数 
+	function_name ( )
+	 {
+				command1
+				……
+				commandn
+	 }
+
+ 
+	shell 函数内部的$1 $2 是接收传过来的参数，不是位置变量  
+**** 调用方法 1
++ function_name  [arg1  arg2  …  ]
++ echo   $？  （$?接收的是函数的 return 值）
+
+**** 调用方法 2	
++ value_name=`function_name  [arg1 arg2 … ]`
++ 函数内的所有标准输出都传递给了主程序的变量 value_name
+
+** 练习代码
+*** 命令综合应用
+#+BEGIN_SRC  sh   
+  #!/bin/bash   
+
+  set -x
+  mkdir $HOME/subdir1 
+  mkdir $HOME/subdir2
+  cp /etc/passwd $HOME/subdir1/ 
+  cp  /etc/group $HOME/subdir2/
+  mv $HOME/subdir2 $HOME/subdir 
+  cd $HOME 
+  sudo tar -cJvf subdir1.tar.xz subdir1
+  cp subdir1.tar.xz  $HOME/subdir/
+  cd $HOME/subdir
+  tar -xvf subdir1.tar.xz
+  ls -l  $HOME/subdir
+
+  set +x
+#+END_SRC
+*** 截取特定用户的 UID:GID
+#+BEGIN_SRC  sh :linux 
+  #!/bin/bash   
+
+  set -x
+  echo -n "please input username :"
+  read username 
+  cut -d ":" -f 1,3,4 /etc/passwd | grep "$username" 
+  set +x
+#+END_SRC
+*** 输入一个成绩，判断成绩的等级
+	+   [90-100] A
+	+   [70-90 ) B 
+	+   [60-70)  C
+	+	[0-60  ) D
+	+	如果成绩非法不是[0-100],则提示用户输入的成绩是非法的成绩
+**** if 语句实现
+#+BEGIN_SRC  sh 
+  #!/bin/bash 
+
+  echo " please input sutudents grade"
+  read a
+  if [ $a -gt 100 ]
+  then
+      echo "grade is a invalid number"
+      exit
+  fi
+  if [ $a -lt 0 ]
+  then
+      echo "grade is a invalid number"
+      exit
+  fi
+
+  b=`expr $a / 10`
+  if [ $b -ge 9 ]
+  then
+      echo "A"
+  elif [ $b -ge 7 ]
+  then 
+      echo "B"
+
+  elif [ $b -ge 6 ]
+  then
+      echo "C"
+
+  else [ $b -lt 6 ]
+      echo "D"
+      fi
+
+
+#+END_SRC
+
+
+ 
+
+**** case 语句实现
+#+BEGIN_SRC  sh 
+
+  #!/bin/bash 
+
+  echo " please input sutudents grade"
+  read a
+  b=`expr $a / 10`
+  case $b in 
+      10|9)
+          echo "A"
+          ;;
+      8|7)
+          echo "B"
+          ;;
+      6)
+          echo "C"
+          ;;
+      5|4|3|2|1|0)
+          echo "D"
+          ;;
+      ,*)
+          echo "grade is a invalid number"
+          ;;  
+  esac
+#+END_SRC
+*** 函数实现,通过行号读取用户名:UID:GID
+#+BEGIN_SRC  sh 
+  #!/bin/bash 
+  find_user_information()
+  {
+      head -$1 /etc/passwd | tail -1| cut -d ":" -f 1,3,4
+  }
+
+  echo " please input line number"
+  read a
+  find_user_information $a
+  echo $?
+#+END_SRC
+*** 函数实现,通过用户名读取用户信息
+#+BEGIN_SRC  sh 
+  #!/bin/bash 
+  find_user_information()
+  {
+      var=`cut -d ":"  /etc/passwd -f 1 |grep "^$1$" -n|cut -d ":" -f 1`
+      if [ -z $var ]
+      then
+          echo "$1 not exist" 
+          return 0 
+      else
+          ret= head -$var /etc/passwd |tail -1|cut -d ":" -f 1,3,4
+          return $ret 
+      fi
+  }
+
+
+  while [ 0 ]
+  do
+      echo " please input username"
+      echo "input quit is quit the program"
+      read a
+
+      if [ $a = "quit" ]
+      then
+          exit
+      fi
+
+      find_user_information $a
+      RET=$?
+  done
+
+#+END_SRC
+*** seq 应用
+#+BEGIN_SRC  sh 
+  #!/bin/bash
+
+  if [ $# -ne 3 ] 
+  then
+      echo "usage:$0 filename start end"
+      exit
+  fi
+
+  for I in `seq $2 $3`
+  do
+      >$1$I
+  done
+
+
+
+#+END_SRC
+*** 文件测试
+#+BEGIN_SRC  sh 
+  #/bin/bash
+
+  if [ $# -ne 1 ]
+  then
+      echo "usage:$0 filename"
+      exit
+  fi
+
+
+  if ! [ -e $1 ]
+  then
+      echo "$1 not exist"
+      exit
+  fi
+
+  if [ -L $1 ]
+  then
+      echo "l"
+  elif [ -d $1 ]
+  then
+      echo "d"
+  elif [ -f $1 ]
+  then
+      echo "f"
+  else
+      echo "?"
+  fi
+
+#+END_SRC
+
+* 第四天<2016-07-20 Wed>
+** 指针基础
++ 指针就是内存单元地址(内存以字节为单位)
++ 指针加 N 表示移动 N 个数据
+** 指针与数组 
+a[i]---*(a+i)---*(p+i)---p[i]
+字符串常量:存储在静态区,不能修改,程序结束释放内存.  
+指针数组是一个数组,数组中的每个元素是一个指针    
+一维数组名相当于一维常量指针  
+二维数组名代表数组的行地址  
+** 指针函数
+指针函数就是返回值为指针的特殊函数  
+可以返回的类型有:  
+                字符串常量的地址  
+                堆上的地址  
+                静太变量的地址  
+不可以返回:
+          局部变量的地址  
+** 函数指针 
+把函数做成一个指针传给其它函数,用的时候把实际需要的函数名
+(函数入口地址)复制给指针      
+函数指针变量说明的一般形式如下:  
+<数据类型> (*<函数指针名称>) (<参数说明列表<);  
+** 结构体
+结构体的本质为自定义数据类型  
+typedef 原类型 新名字   
+typedef unsigned int UINT;
+typedef struct 结构体名{  
+	   .....  
+	   }新名字；  
++  "新名字": 不加 typedef 表示变量,加表示类型  
+** 变量的存储类型
+寄存器变量，没有地址  
+static 修饰局部变量：  
++  如未明确初始化，它的字节将被设定为 0
++  初始化一次
++  具有静态存储时期（程序结束释放内存）
+
+extern:访问其它文件的全句变量时，需要先用 extern 声明（var.c var2.c)  
+static 修饰全局变量：该变量只能当前文件访问。
+** 动态内存
+ 		malloc:  
+		   - 参数：申请的内存大小
+		   - 返回值：申请内存成功，返回起始地址，失败返回空
+		   - 注意类型转换
+		   
+		free:
+		    - 参数：必须申请空间的起始地址
+			- 只能释放一次
+			- 忘记 free,程序不报错,但是内存泄露
+			- 杜绝野指针：指针存储的地址是无效地址
+			- 野指针对程序的影响不确定  
+
+** 代码练习
+*** 打印字符串中的某个字符
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <string.h>
+  int main()
+  {
+    char* s1="welcome";
+    char* s2="hello";
+    char* s3="world";
+
+    char* p[]={s1,s2,s3};
+    int i=0;
+    printf("%c\n",*(p[0]+0));
+    printf("%c %c \n",*s1,s1[0]);
+    printf("%c %c\n",*p[0],p[0][0]);
+    return 0;
+
+  }
+
+#+END_SRC
+
+#+RESULTS:
+| w |   |
+| w | w |
+| w | w |
+
+*** 打印命令行参数
+#+BEGIN_SRC C : 
+  #include <stdio.h>
+  int main(int argc,const char* argv[])
+  {
+
+    int i=0;
+    for(i=0;i<argc;i++)
+      {
+        printf("%s\n",argv[i]);
+
+      }
+    return 0;
+  }
+#+END_SRC
+
+#+RESULTS:
+| hello |
+
+*** 函数指针一
+#+BEGIN_SRC  C
+  # include <stdio.h>
+  # include <string.h>
+
+  #define N 100
+
+  char * mystrcpy(char * dest, char *src);
+  int main(int argc, const char *argv[])
+  {
+      char s1[N];
+      char s2[] = "welcome";
+
+      char *  (* pfunc)(char *, char *);
+
+      pfunc = mystrcpy;// pfunc = mystrcat
+
+      (*pfunc)(s1, s2);//pfunc(s1,s2)
+
+
+      puts(s1);
+      puts(s2);
+    
+      return 0;
+  }
+
+  char * mystrcpy(char * dest, char *src) {//char * dest = s1;  char * src = s2;
+      char * p = dest;
+      while (*src != '\0') {
+          *dest = *src;
+          src++;
+          dest++;
+      }
+      *dest = '\0';
+
+      return p;
+  }
+
+#+END_SRC
+
+#+RESULTS:
+| welcome |
+| welcome |
+*** 函数指针二
+#+BEGIN_SRC C
+
+  #include <stdio.h>
+  #include <stdlib.h>
+
+  int get_result(int n) {
+    return n;
+  }
+
+  int get_sum(int n) {
+    int sum=0, i = 1;
+
+    while (i <= n) {
+      sum += i;
+      i++;
+    }
+
+    return sum;
+  }
+
+  int test(int n, int (*pFunc)(int)) {//int (*pFunc)(int) = get_sum
+    return (*pFunc)(n+1);
+  }
+
+  int main(int argc, const char *argv[])//   ./a.out   100
+  {
+    int ret, n = 100;
+
+    int (*p)(int);
+
+    p = get_sum;
+
+    //ret = get_sum(n);
+    ret = (*p)(n);
+    //ret = p(n);
+    printf("sum=%d\n", ret);
+
+    //ret = test(100, get_sum);
+    ret = test(100, get_result);
+    printf("ret=%d\n", ret);
+
+    return 0;
+  }
+#+END_SRC
+
+#+RESULTS:
+| sum=5050 |
+| ret=101  |
+
+*** 函数指针三
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+
+  #define N 100
+
+  static int compar_int(const void *, const void *);
+
+  int main(int argc, const char *argv[])
+  {
+    int a[] = {9, 45, 1, 6, 9, 2}, i;
+
+    qsort(a, sizeof(a)/sizeof(int), sizeof(int), compar_int);
+
+    for (i = 0; i < sizeof(a)/sizeof(int); i++) {
+      printf("%d\n", a[i]);
+    }
+
+    return 0;
+  }
+
+   static int compar_int(const void *p1, const void *p2)
+         {
+          return *((const int *)p1) - *((const int *)p2);
+
+         }
+
+
+#+END_SRC
+
+#+RESULTS:
+|  1 |
+|  2 |
+|  6 |
+|  9 |
+|  9 |
+| 45 |
+
+*** 动态内存
+#+BEGIN_SRC C 
+  #include <stdio.h>
+  #include<stdlib.h>
+  #include<string.h>
+  char* get_memory(int n)
+  {
+
+    char *p;
+    p=(char*)malloc(n*sizeof(char));
+    if (p==NULL)
+      {
+
+        printf("malloc faild\n");
+        return NULL;
+      }
+    printf("input string");
+    return p;
+  }
+  int main(int argc,const char* argv[])
+  {
+
+    int n;
+    char* s;
+    printf("input n");
+    scanf("%d",&n);
+    s=get_memory(n);
+    if (s == NULL)
+      {
+
+        return 0;
+      }
+    puts(s);
+    free(s);
+    s=NULL;
+    return 0;
+  }
+#+END_SRC
+
+*** 指针一
+#+BEGIN_SRC C
+  #include <stdio.h>
+
+  int main(int argc, const char *argv[])
+  {
+    int arr[] = {1, 6, 3, 9, 20}, i;
+    int * p;
+
+    p = arr;
+
+    for (i = 0; i < sizeof(arr)/sizeof(int); i++) {
+      printf("%d %d %d %d\n", arr[i], *(arr+i), *(p+i),p[i]); 
+    }
+
+    i = 0;
+    while (i < sizeof(arr)/sizeof(int)) {
+      printf("%d\n", *p);
+      p++;
+      i++;
+    }
+
+    //    p--;
+    //    printf("\n%d\n", *p);
+
+    //    p = arr;
+    //    printf("\n%d\n", p[4]);
+
+    printf("\n%d %d\n", p[-1], *(p-1));
+
+
+    return 0;
+  }
+#+END_SRC
+
+#+RESULTS:
+|  1 |  1 |  1 |  1 |
+|  6 |  6 |  6 |  6 |
+|  3 |  3 |  3 |  3 |
+|  9 |  9 |  9 |  9 |
+| 20 | 20 | 20 | 20 |
+|  1 |    |    |    |
+|  6 |    |    |    |
+|  3 |    |    |    |
+|  9 |    |    |    |
+| 20 |    |    |    |
+|    |    |    |    |
+| 20 | 20 |    |    |
+
+*** 指针二
+#+BEGIN_SRC C
+  # include <stdio.h>
+  # include <string.h>
+
+  #define N 100
+  int main(int argc, const char *argv[])
+  {
+    char * s1 = "welcome";
+    char * s2 = "to";
+    char a[] = "hello";
+    char b[] = "word";
+
+    char *  p[4]; //char *  q[]  = {s1, s2, a, b};
+    p[0] = s1;
+    p[1] = s2;
+    p[2] = a;
+    p[3] = b;
+
+
+    printf("%c %c\n", *s1, s1[0]);
+    printf("%c %c\n", *p[0], p[0][0]);
+
+
+    printf("%c %c %c \n", *(*(p+1)+1),*(p[1]+1),*(s2+1) );
+
+    printf("%d %d %d\n", sizeof(p[0]), sizeof(char *), sizeof(p));
+    printf("%p %p\n", &p[0],&p[1]);
+    printf("%p %p\n", p, p+1);
+
+
+    printf("%d %d \n", sizeof(double), sizeof(double *));
+
+
+    return 0;
+  }
+
+#+END_SRC
+
+#+RESULTS:
+|          w |          w |    |
+|          w |          w |    |
+|          o |          o |  o |
+|          4 |          4 | 16 |
+| 0xbff54318 | 0xbff5431c |    |
+| 0xbff54318 | 0xbff5431c |    |
+|          8 |          4 |    |
+
+*** 指针三
+#+BEGIN_SRC C
+  #include <stdio.h>
+
+  int main(int argc, const char *  argv[])
+  {
+    int m = 10;
+    
+    int * p;
+    int ** q;
+    int *** r;
+
+    p = &m;
+    q = &p;
+    r = &q;
+
+    printf("%d %d %d %d\n",m, *p, **q, ***r);
+
+    char * s[3] = {"beijing", "shenzhen", "shanghai"};
+    char ** sp;
+
+    sp = s;//s[0]+1
+    sp = &s[0];
+
+    int i = 0;
+    while (i < sizeof(s)/sizeof(char *)) {
+
+      printf("%s, %s\n", s[i], *(sp+i));
+      i++;
+    }
+    
+
+
+
+    return 0;
+  }
+
+#+END_SRC
+
+#+RESULTS:
+| 10 10 10 10 |          |
+| beijing     | beijing  |
+| shenzhen    | shenzhen |
+| shanghai    | shanghai |
+
+*** union
+#+BEGIN_SRC C
+  #include <stdio.h>
+
+  union sem {
+    char a;
+    short b;
+    int c;
+  }u1;
+
+  int main(int argc, const char *argv[])
+  {
+    void * p;
+    p =  &u1;
+    u1.c = 0x12345678;  //
+    
+    printf("%#x, %#x, %#x\n", u1.a, u1.b, u1.c);
+    printf("%p %p %p %p\n", &u1, &u1.a, &u1.b, &u1.c);
+
+    printf("%#x\n", *(char *)p);
+    printf("%#x\n", *((char *)p+1));
+    printf("%#x\n", *((char *)p+2));
+    printf("%#x\n", *((char *)p+3));
+
+    char * q;
+    int i;
+
+    //    q = &u1;
+    return 0;
+  }
+
+#+END_SRC
+
+#+RESULTS:
+|     0x78, |   0x5678, | 0x12345678 |           |
+| 0x804a01c | 0x804a01c |  0x804a01c | 0x804a01c |
+|      0x78 |           |            |           |
+|      0x56 |           |            |           |
+|      0x34 |           |            |           |
+|      0x12 |           |            | 
+       
+*** 结构体 
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <string.h>
+  #define N 50
+
+  typedef struct Student {
+    long no;
+    char name[N];
+    struct {
+      int year;
+      int month;
+      int day;
+    }birth;
+  }Stu, * Stup;
+
+
+  int main(int argc, const char *argv[])
+  {
+    Stu s1, s2 = {2, "Tom", {1999, 9, 9}};
+    Stu * p;//struct Student * p;
+
+    p = &s1;
+
+    s1.no = 1;
+    strcpy(s1.name, "jerry");
+    s1.birth.year = 1999;
+    s1.birth.month = 9;
+    s1.birth.day = 9;
+
+
+    printf("%ld %s %d-%02d-%02d\n", s1.no, s1.name, 
+           s1.birth.year, s1.birth.month, s1.birth.day);
+    return 0;
+  }
+
+
+#+END_SRC
+
+#+RESULTS:
+: 1 jerry 1999-09-09
+
