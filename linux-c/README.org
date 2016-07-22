@@ -604,7 +604,7 @@ static 修饰全局变量：该变量只能当前文件访问。
 | ret=101  |
 
 *** 函数指针三
-#+BEGIN_SRC C
+#+BEGIN_SRC C :tangle p.c
   #include <stdio.h>
   #include <stdlib.h>
 
@@ -905,4 +905,9 @@ static 修饰全局变量：该变量只能当前文件访问。
 
 #+RESULTS:
 : 1 jerry 1999-09-09
+
+* 第五天<2016-07-21 Thu>
+** 数组指针 (int (*p)[n])
++  本质还是指针,只是 p 的类型是(int*) * 3
++ *p 只是改变指针移动的距离
 
