@@ -13,7 +13,7 @@
   #define  _SEQLIST_H
   #define N 50
   #define SIZE 100
-  typedef Book DataType;
+  typedef Book datatype;
   typedef struct book {
     int no;
     char name[N];
@@ -27,8 +27,8 @@
   }SeqList;
   SeqList* SeqList_Create();
   int SeqList_Empty(SeqList *L);
-  int SeqList_Locate(SeqList *L,DataType value);
-  int SeqList_Insert(SeqList *L,DataType value,int Pos);
+  int SeqList_Locate(SeqList *L,datatype value);
+  int SeqList_Insert(SeqList *L,datatype value,int Pos);
   int SeqList_DeLete(SeqList *L,int Pos);
   int SeqList_Show(SqList *L);
   #endif
@@ -68,7 +68,7 @@
   /*
     假如有这个元素返回该元素的下标,没有返回-1;
    ,*/
-  int SeqList_Locate(SeqList *L,DataType value)
+  int SeqList_Locate(SeqList *L,datatype value)
   {
     int i=0;
     for(i=0;i<=L->last,i++)
@@ -81,7 +81,7 @@
     return -1;
 
   }
-  int SeqList_Insert(SeqList *L,DataType value,int Pos)
+  int SeqList_Insert(SeqList *L,datatype value,int Pos)
   {
     int ret=(0<=Pos)&&((L->last +1)<sizeof(L));
       if(ret && (Pos>=L->last+1))
@@ -111,7 +111,7 @@
 
                  L->data[i]=L->data[i+1];
               }
-               L->last--;
+               L->last--; 
         }
     return ret;
   }
@@ -126,6 +126,8 @@
     return 0;
 
   }
+
+
 #+END_SRC
 **** main 函数
 #+BEGIN_SRC C :main no :
@@ -148,20 +150,19 @@
   main.o:main.c SeqList.h
       $(cc) $(CFLAGS) -c $@ $<
 #+END_SRC
-*** 链表
+*** 单链表
 **** 头文件
 #+BEGIN_SRC C :main no :tangle LinkList.h
+  typedef void LinkList;
   typedef int datatype;
-  typedef struct node {
-    int data;
-    struct node *next;
-  }LinkList;
-
+ 
   LinkList* LinkList_Create();
 
   int LinkList_Insert(LinkList* list,datatype value,int pos);
 
   LinkList* LinkList_Delete(LinkList* list,int pos);
+
+  void LinkList_Show(LinkList *list);
 
   int LinkList_Sort(LinkList* list);
 
@@ -173,10 +174,19 @@
   #include <stdlib.h>
   #include <string.h>
   #include "LinkList.h"
+
+  typedef struct node {
+    int data;
+    struct node *next;
+  }TLinkList;
+
+  /*
+    创建链表的过程:从堆空间上申请表头节点并初始化,表头节点有一个数据域和一个指针域.  
+   ,*/
   LinkList* LinkList_Create()
   {
-    LinkList* ret=NULL;
-    ret=(LinkList*)malloc(sizeof(LinkList));
+    TLinkList* ret=NULL;
+    ret=(TLinkList*)malloc(sizeof(TLinkList));
     if(ret != NULL)
       {
 
@@ -190,19 +200,29 @@
     return ret;
 
   }
+  /*
+    插入的节点空间从堆空间上申请
+    然后将一个 current 指针指向表头,然后将 current 指针移动 pos-1 个位置,开始插入
+    第一步 :将插入元素的 next 指针指向 current(此时 current pos-1 的位置)的 next
+    第二步 :将插入元素的数据域(即 node->data)赋值为要插入的值(value)
+    第三步 :然元素进入链表,即将当前位置(pos -1 )的 next 指向我们要插入的元素
+    第四步  :链表的长度加 1  
+
+   ,*/
   int LinkList_Insert(LinkList* list,datatype value,int pos)
   {
-    int ret=(list != NULL)&&(pos>=0)&&(pos<=list->data);
+    TLinkList* TList=(TLinkList*)list;
+    int ret=(TList != NULL)&&(pos>=0)&&(pos<=TList->data);
     if(ret)
       {
 
-        LinkList* node=(LinkList*)malloc(sizeof(LinkList));
-        LinkList* current=list;
+        TLinkList* node=(TLinkList*)malloc(sizeof(TLinkList));
+        TLinkList* current=TList;
         int i=0;
-        if(pos>list->data)
+        if(pos>TList->data)
           {
 
-            pos=list->data;
+            pos=TList->data;
           }
         for(i=0;(i<pos)&&(current->next !=NULL);i++)
           {
@@ -212,21 +232,33 @@
         node->next=current->next;
         node->data=value;
         current->next = node;
-        list->data++;  
+        TList->data++;  
 
       }
 
     return ret;
   }
+
+  /*
+  第一步:合法性检测,传入的链表不能为空,删除的位置必须大于零并且小于链表的长度.
+
+  第二步:把表头赋值给一个 current 指针,让 current 指针移动 pos 减一个位置,即移动到我们要删除的上一个元素的位置
+
+  第三步:我们把 current 的 next,即我们要删除的元素赋值给一个 ret 指针.这样做的目的有两个,(1)ret 保存了要删除的元素,所以可以把 ret 作为返回值;(2)我们需要用到 ret 的 next,即 ret 的下一个元素.
+
+  第四步:让链表的链跳过我们要删除的元素,current=ret->next
+  第五步:链表的长度减 1
+
+   ,*/
   LinkList* LinkList_Delete(LinkList* list,int pos)
   {
-
-    LinkList* ret=NULL;
-    if((list != NULL)&&( (pos>=0)&& (pos<=list->data)))
+    TLinkList* TList=(TLinkList*)list;
+    TLinkList* ret=NULL;
+    if((TList != NULL)&&( (pos>=0)&& (pos<TList->data)))
       {
 
         int i=0;
-        LinkList* current=list;
+        TLinkList* current=TList;
         for(i=0;i<pos;i++)
           {
             current=current->next;
@@ -234,27 +266,72 @@
           }
         ret=current->next;
         current=ret->next;
-        list->data--;
+        TList->data--;
 
       }
     return ret;
 
   }
-
-  void LinkList_Show(LinkList *H){
-    if(H == NULL){
-  
-    }else
+  /*
+  从一个元素开始打印,用 next 指针访问下一个元素,只要下一个元素不为空,就证明还没到链表的末尾 
+   ,*/
+  void LinkList_Show(LinkList *list){
+    TLinkList* TList=(TLinkList*)list;
+    while (TList != NULL && TList->next != NULL)
       {
-        LinkList *p;
-        p = H;
-        while(p->next != NULL){
-          printf("%d  ",p->data);
-          p = p->next;
-        }
-        puts("");
+
+        printf("%d",TList->next->data);
+        TList=TList->next;
       }
+    puts(" ");
   }
+  /*
+  插入排序法给链表排序:
+  + 使用一个 current 指针指向链表的第一个元素,把原来的链表置空,只要 current 的 next 不为空,就证明还没到链表末尾
+  + 因为 current 指针要移动,所以用一个 save 指针保存 current 指针,然后 current 指向下一个元素
+  + 然后我们还需要一个 orderlist 指针来遍历有序的链表,找到插入的位置,指针的起始位置为表头
+  + 当 save 里的 data 小于 orderlist 里的某个数据或者是到达了 orderlist 链表的末尾时开始插入
+  + 插入的过程其实就是在 orderlist 链表里插入一个新元素:为保证 orderlist 链表不断首先把要插入元素的 next 指针指向 orderlist 的 next,然后在把 orderlist 的 next 指向要差入的元素.
+
+
+   ,*/
+  int  LinkList_Sort(LinkList *list) {
+    TLinkList* TList=(TLinkList*)list;
+    TLinkList *current=TList->next,*save,*orderlist;
+    TList->next=NULL;
+    while(current != NULL)
+      {
+        save=current;
+        current=current->next;
+        orderlist=TList;
+        while (orderlist->next !=NULL && orderlist->next->data <save->data)
+          {
+
+            orderlist=orderlist->next;
+          }
+        save->next =orderlist->next;
+        orderlist->next =save;
+      }
+    return 0;
+ 
+  }
+  /*
+    原理和 LinkList_Sort 一样,只是不需要比较,直接在头部插入即可.
+   ,*/
+  int LinkList_Reverse(LinkList* list) {
+    TLinkList* TList=(TLinkList*)list;
+    TLinkList* current=TList->next,*save;
+    TList->next=NULL;
+    while(current !=NULL)
+      {
+        save=current;
+        current=current->next;
+        save->next=TList->next;
+        TList->next=save;
+      }
+    return 0;
+  }
+
 
 #+END_SRC
 
@@ -290,6 +367,376 @@
       $(cc) $(CFLAGS) -o $@ $<
 #+END_SRC
 
+*** 双向链表
+**** 头文件
+#+BEGIN_SRC C 
+  #ifndef _DLINKLIST_H_
+  #define _DLINKLIST_H_
+  typedef void DLinkList;
+  typedef struct _tag_DLinkListNode DLinkListNode;
+  struct _tag_DLinkListNode
+  {
+    DLinkListNode *pre;
+    DLinkListNode *next;
+  };
+
+  DLinkList* DLinkList_Create();
+
+  void DLinkList_Destroy(DLinkList* list);
+
+  void DLinkList_Clear(DLinkList* list);
+
+  int DLinkList_Length(DLinkList* list);
+
+  int DLinkList_Insert(DLinkList* list, DLinkListNode* node, int pos);
+
+  DLinkListNode* DLinkList_Get(DLinkList* list, int pos);
+
+  DLinkListNode* DLinkList_Delete(DLinkList* list, int pos);
+
+  DLinkListNode* DLinkList_DeleteNode(DLinkList* list, DLinkListNode* node);
+
+  DLinkListNode* DLinkList_Reset(DLinkList* list);
+
+  DLinkListNode* DLinkList_Current(DLinkList* list);
+
+  DLinkListNode* DLinkList_Next(DLinkList* list);
+
+  DLinkListNode* DLinkList_Pre(DLinkList* list);
+
+
+  #endif
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC C 
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "DLinkList.h"
+  /*
+   定义表头,包含数据域,和指针域;
+    ,*/
+   typedef struct _tag_DLinkList
+   {
+     DLinkListNode header;
+     DLinkListNode* slider;
+     int length;
+   }TDLinkList;
+
+   /*
+   创建空双向循环链表: 从堆里申请空间,申请成功后初始化,表头的前指针(pre)和后指针(next)都指向空,游标 slider 也指向空.因为表头的数据域存放长度,把 DLinkList 定义为 void 比较安全. 
+
+    ,*/
+   DLinkList* DLinkList_Create()
+   {
+
+     TDLinkList* ret=(TDLinkList*)malloc(sizeof(TDLinkList));
+     if(ret !=NULL)
+       {
+         ret->length=0;
+         ret->header.next=NULL;
+         ret->header.pre=NULL;
+         ret->slider=NULL;
+
+         return ret;
+       }else
+       {
+
+         printf("malloc DLinkList failed");
+         return NULL;
+       }
+
+   }
+
+   void DLinkList_Destroy(DLinkList* list)
+   {
+
+     free(list);
+   }
+
+   void DLinkList_Clear(DLinkList* list)
+   {
+     TDLinkList* TDList=(TDLinkList*)list;
+     if(TDList != NULL)
+       {
+
+         TDList->length=0;
+         TDList->header.next=NULL;
+         TDList->header.pre=NULL;
+         TDList->slider=NULL;
+       }
+
+   }
+
+   int DLinkList_Length(DLinkList* list)
+   {
+     TDLinkList* TDList=(TDLinkList*)list;
+     int ret= -1;
+     if(TDList != NULL)
+       {
+         ret=TDList->length;
+ 
+       }
+     return ret;
+   }
+
+
+   /*
+   注意双向链的第一个节点的 pre 指向空,尾节点的 next 指向空,空节点没有 next 和 pre  
+   首先是一些合法性检测,然后用 current 移动到要插入位置的前一个位置,然后有 Next 指针指向 current 的下一个位置,因为前指针的链接需要用到这个位置.
+   开始插入:因为是双向,只要不是节点一头的两条链都断,链表就不会段.但最好先链接好一个方向再断另一个方向.
+   + 首先 current 的 next 指向要插入的元素
+   + 其次 node 的 next 指向 Next.这样就完成了一个方向
+   + 插前指针需要判断一下 Next 是否为空,为空则没有 pre 指针,假如不为空,则 Next 的 pre 指向 node
+   + node 的 pre 指向 current
+   + 链表长度为零的时候,slider 指向插入的元素
+   + 假如 current 指向的是表头则 node 的 pre 指向空
+
+
+
+    ,*/
+   int DLinkList_Insert(DLinkList* list,DLinkListNode* node,int pos)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     int ret=(TDList !=NULL) && (node != NULL) && (pos>=0);
+     int i=0;
+     if(ret)
+       {
+
+         DLinkListNode* current=(DLinkListNode*)TDList;
+         DLinkListNode* Next=NULL;
+         for(i=0;(i<pos) && (current->next !=NULL);i++)
+           {
+
+             current=current->next;
+           }
+         Next=current->next;
+
+         current->next=node;
+         node->next=Next;
+         if(Next != NULL)
+           {
+
+             Next->pre=node;
+           }
+
+         node->pre=current;
+
+         if(TDList->length == 0)
+           {
+
+             TDList->slider = node;
+           }
+ 
+         if(current == (DLinkListNode*)TDList)
+           {
+
+             node->pre= NULL;
+           }
+         TDList->length++;
+
+       }
+     return ret;
+   }
+
+   DLinkListNode* DLinkList_Get(DLinkList* list,int pos)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     int i=0;
+     if((TDList != NULL) && (0 <= pos) && (pos<TDList->length))
+       {
+
+         DLinkListNode* current=(DLinkListNode*)TDList;
+         for(i=0;i<pos;i++)
+           {
+
+             current=current->next;
+           }
+         ret=current->next;
+       }
+     return ret;
+   }
+   /*
+     +   删除头节点,下一个元素的 pre 指向空
+     +   删除尾节点,Next(即 NULL)没有 pre
+     +   删除游标 slider 所在的节点时,slider 指向下一个元素
+    ,*/
+   DLinkListNode* DLinkList_Delete(DLinkList* list,int pos)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     int i=0;
+     if((TDList != NULL) && (0<=pos)&& (pos>TDList->length))
+       {
+
+         DLinkListNode* current=(DLinkListNode*)TDList;
+         DLinkListNode* Next=NULL;
+         for(i=0;i<pos;i++)
+           {
+
+             current=current->next;
+           }
+
+         ret=current->next;
+         Next=ret->next;
+
+         current->next=Next;
+         if(Next != NULL)
+           {
+
+             Next->pre=current;
+             if(current ==(DLinkListNode*)TDList)
+               {
+
+                 Next->pre=NULL;
+               }
+           }
+         if(TDList->slider ==ret)
+           {
+
+             TDList->slider=Next;
+           }
+         TDList->length--;
+       }
+     return ret;
+   }
+
+   DLinkListNode* DLinkList_DeleteNode(DLinkList* list,DLinkListNode* node)
+   {
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret= NULL;
+     int i=0;
+     if(TDList !=NULL)
+       {
+
+         DLinkListNode* current =(DLinkListNode*)TDList;
+         for(i=0;i<TDList->length;i++)
+           {
+
+             if(current->next==node)
+               {
+
+                 ret=current->next;
+                 break;
+               }
+             current=current->next;
+           }
+         if(ret !=NULL)
+           {
+
+             DLinkList_Delete(TDList,i);
+           }
+       }
+     return ret;
+
+   }
+
+   DLinkListNode* DLinkList_Reset(DLinkList* list)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     if(TDList != NULL)
+       {
+
+         TDList->slider=TDList->header.next;
+         ret=TDList->slider;
+       }
+     return ret;
+
+   }
+   DLinkListNode* DLinkList_Current(DLinkList* list)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     if(TDList != NULL)
+       {
+
+         ret=TDList->slider;
+       }
+     return ret;
+   }
+   DLinkListNode* DLinkList_Next(DLinkList* list)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     if((TDList != NULL) && (TDList->slider != NULL))
+       {
+         ret=TDList->slider;
+         TDList->slider=ret->next;
+
+       }
+     return ret;
+   }
+   DLinkListNode* DLinkList_pre(DLinkList* list)
+   {
+
+     TDLinkList* TDList=(TDLinkList*)list;
+     DLinkListNode* ret=NULL;
+     if((TDList != NULL) && (TDList->slider != NULL))
+       {
+
+         ret= TDList->slider;
+         TDList->slider =ret->pre;
+       }
+     return ret;
+   }
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C 
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include "DLinkList.h"
+    /* run this program using the console pauser or add your own getch, system("pause") or input loop */
+
+    struct Value
+    {
+      DLinkListNode header;
+      int v;
+    };
+
+    int main(int argc, char *argv[])
+    {
+
+      DLinkList* list = DLinkList_Create();
+
+      struct Value v1;
+      struct Value v2;
+      struct Value v3;
+      struct Value v4;
+      struct Value v5;
+
+      v1.v = 1;
+      v2.v = 2;
+      v3.v = 3;
+      v4.v = 4;
+      v5.v = 5;
+
+      DLinkList_Insert(list, (DLinkListNode*)&v1, 0);
+      DLinkList_Insert(list, (DLinkListNode*)&v2, 0);
+      DLinkList_Insert(list, (DLinkListNode*)&v3, 0);
+      DLinkList_Insert(list, (DLinkListNode*)&v4, 0);
+      DLinkList_Insert(list, (DLinkListNode*)&v5, 0);
+
+      DLinkList_Reset(list);
+  struct Value *pv = (struct Value*)DLinkList_Get(list, 0);
+      printf("%d" ,pv->v);
+
+      //DLinkList_Pre(list);
+
+      // printf("%x\n", DLinkList_Current(list));
+
+      DLinkList_Destroy(list);
+
+      return 0;
+    }
+
+#+END_SRC
 ** 老师代码
 *** 线性表
 **** 头文件
@@ -530,7 +977,7 @@
 
       p->next = H->next;
       H->next = p;
-    
+  
       return 0; 
   }
 
@@ -628,7 +1075,7 @@
       while (p != NULL) {
           q = p;
           p = p->next;
-    
+  
           q->next = H->next;
           H->next = q;
       }
@@ -672,10 +1119,10 @@
 #+END_SRC
 * 第二天<2016-07-22 Fri> 
 ** 代码练习
-*** LinkStack
+*** 链式栈
 **** 头文件
 #+BEGIN_SRC  C
-  typedef int DataType;
+  typedef int datatype;
   typedef  void LinkStack ;
   typedef _tag_LinkStackNode LinkStackNode;
   struct _tag_LinkStackNode {
@@ -769,7 +1216,7 @@
 
 #+END_SRC
 
-*** SeqQueue
+*** 顺序队列
 **** 头文件
 #+BEGIN_SRC C
   typedef int datatype;
@@ -907,7 +1354,7 @@
       $(CC) $(CFLAGS) -o $@ $^
 
 #+END_SRC
-*** LinkQueue
+*** 链式队列
 **** 头文件
 #+BEGIN_SRC C :main no 
   typedef int datatype;
