@@ -1,0 +1,161 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "LinkList.h"
+
+typedef struct node {
+  int data;
+  struct node *next;
+}TLinkList;
+
+/*
+  创建链表的过程:从堆空间上申请表头节点并初始化,表头节点有一个数据域和一个指针域.  
+ */
+LinkList* LinkList_Create()
+{
+  TLinkList* ret=NULL;
+  ret=(TLinkList*)malloc(sizeof(TLinkList));
+  if(ret != NULL)
+    {
+
+      ret->data=0;
+      ret->next=NULL;
+    }else
+    {
+
+      printf("malloc failed");
+    }
+  return ret;
+
+}
+/*
+  插入的节点空间从堆空间上申请
+  然后将一个 current 指针指向表头,然后将 current 指针移动 pos-1 个位置,开始插入
+  第一步 :将插入元素的 next 指针指向 current(此时 current pos-1 的位置)的 next
+  第二步 :将插入元素的数据域(即 node->data)赋值为要插入的值(value)
+  第三步 :然元素进入链表,即将当前位置(pos -1 )的 next 指向我们要插入的元素
+  第四步  :链表的长度加 1  
+
+ */
+int LinkList_Insert(LinkList* list,datatype value,int pos)
+{
+  TLinkList* TList=(TLinkList*)list;
+  int ret=(TList != NULL)&&(pos>=0)&&(pos<=TList->data);
+  if(ret)
+    {
+
+      TLinkList* node=(TLinkList*)malloc(sizeof(TLinkList));
+      TLinkList* current=TList;
+      int i=0;
+      if(pos>TList->data)
+        {
+
+          pos=TList->data;
+        }
+      for(i=0;(i<pos)&&(current->next !=NULL);i++)
+        {
+
+          current=current->next;
+        }
+      node->next=current->next;
+      node->data=value;
+      current->next = node;
+      TList->data++;  
+
+    }
+
+  return ret;
+}
+
+/*
+第一步:合法性检测,传入的链表不能为空,删除的位置必须大于零并且小于链表的长度.
+
+第二步:把表头赋值给一个 current 指针,让 current 指针移动 pos 减一个位置,即移动到我们要删除的上一个元素的位置
+
+第三步:我们把 current 的 next,即我们要删除的元素赋值给一个 ret 指针.这样做的目的有两个,(1)ret 保存了要删除的元素,所以可以把 ret 作为返回值;(2)我们需要用到 ret 的 next,即 ret 的下一个元素.
+
+第四步:让链表的链跳过我们要删除的元素,current=ret->next
+第五步:链表的长度减 1
+
+ */
+LinkList* LinkList_Delete(LinkList* list,int pos)
+{
+  TLinkList* TList=(TLinkList*)list;
+  TLinkList* ret=NULL;
+  if((TList != NULL)&&( (pos>=0)&& (pos<TList->data)))
+    {
+
+      int i=0;
+      TLinkList* current=TList;
+      for(i=0;i<pos;i++)
+        {
+          current=current->next;
+
+        }
+      ret=current->next;
+      current=ret->next;
+      TList->data--;
+
+    }
+  return ret;
+
+}
+/*
+从一个元素开始打印,用 next 指针访问下一个元素,只要下一个元素不为空,就证明还没到链表的末尾 
+ */
+void LinkList_Show(LinkList *list){
+  TLinkList* TList=(TLinkList*)list;
+  while (TList != NULL && TList->next != NULL)
+    {
+
+      printf("%d",TList->next->data);
+      TList=TList->next;
+    }
+  puts(" ");
+}
+/*
+插入排序法给链表排序:
++ 使用一个 current 指针指向链表的第一个元素,把原来的链表置空,只要 current 的 next 不为空,就证明还没到链表末尾
++ 因为 current 指针要移动,所以用一个 save 指针保存 current 指针,然后 current 指向下一个元素
++ 然后我们还需要一个 orderlist 指针来遍历有序的链表,找到插入的位置,指针的起始位置为表头
++ 当 save 里的 data 小于 orderlist 里的某个数据或者是到达了 orderlist 链表的末尾时开始插入
++ 插入的过程其实就是在 orderlist 链表里插入一个新元素:为保证 orderlist 链表不断首先把要插入元素的 next 指针指向 orderlist 的 next,然后在把 orderlist 的 next 指向要差入的元素.
+
+
+ */
+int  LinkList_Sort(LinkList *list) {
+  TLinkList* TList=(TLinkList*)list;
+  TLinkList *current=TList->next,*save,*orderlist;
+  TList->next=NULL;
+  while(current != NULL)
+    {
+      save=current;
+      current=current->next;
+      orderlist=TList;
+      while (orderlist->next !=NULL && orderlist->next->data <save->data)
+        {
+
+          orderlist=orderlist->next;
+        }
+      save->next =orderlist->next;
+      orderlist->next =save;
+    }
+  return 0;
+ 
+}
+/*
+  原理和 LinkList_Sort 一样,只是不需要比较,直接在头部插入即可.
+ */
+int LinkList_Reverse(LinkList* list) {
+  TLinkList* TList=(TLinkList*)list;
+  TLinkList* current=TList->next,*save;
+  TList->next=NULL;
+  while(current !=NULL)
+    {
+      save=current;
+      current=current->next;
+      save->next=TList->next;
+      TList->next=save;
+    }
+  return 0;
+}

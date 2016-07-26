@@ -1,0 +1,193 @@
+* 第三天<2016-07-22 sa>
+*** 二叉树
+**** 头文件
+#+BEGIN_SRC C :main no :tangle  BTree.h
+  #ifndef _BTREE_H_
+  #define _BTREE_H_
+  typedef char btreenode;
+
+    typedef struct _tag_bitree{
+        btreenode data;
+        struct _tag_bitree * left;
+        struct _tag_bitree * right;
+    }bitree;
+
+    bitree * tree_create();
+    void preorder(bitree * r);
+    void inorder(bitree * r);
+    void postorder(bitree * r);
+    void layerorder(bitree * r);
+  bitree* fulltree_create(char ch[],int n,int i);
+  #endif
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC C :main no :tangle BTree.c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "BTree.h"
+  #include "LinkQueue.h"
+  bitree * tree_create()
+  {
+      bitree* ret;
+      char ch;
+      printf("please input tree");
+      scanf("%c",&ch);
+      if(ch != '#')
+      {
+          ret=(bitree*)malloc(sizeof(bitree));
+
+          if(ret !=NULL)
+          {
+
+              ret->data=ch;
+              ret->left=tree_create();
+              ret->right=tree_create();
+          }else
+          {
+
+              printf("malloc bitree failed");
+              return NULL;
+          }
+
+      }else
+      {
+
+          return NULL;
+      }
+
+      return ret;
+
+  }
+  bitree* fulltree_create(char ch[],int n,int i)
+  {
+
+              bitree* ret=(bitree*)malloc(sizeof(bitree));
+              if(ret ==NULL)
+              {
+
+                  return NULL;
+              }else
+              {
+                  ret->data=ch[i];
+                  if(2 * i <= n)
+                  {
+                      ret->left=fulltree_create( ch, n, 2*i);
+
+                  }
+                  if(2 * i + 1 <=n)
+                  {
+                      ret->right=fulltree_create(ch,n, 2*i+1);
+                  }
+
+              }
+
+              return ret;
+
+
+      }
+
+
+
+  void preorder(bitree * r)
+  {
+      if(r != NULL)
+      {
+
+          printf("%c",r->data);
+          preorder(r->left);
+          preorder(r->right);
+      }
+
+  }
+  void inorder(bitree * r)
+  {
+      if(r !=NULL)
+      {
+
+          inorder(r->left);
+          printf("%c",r->data);
+          inorder(r->right);
+      }
+  }
+  void postorder(bitree * r)
+  {
+      if(r != NULL)
+      {
+
+          inorder(r->left);
+          inorder(r->right);
+          printf("%c",r->data);
+      }
+  }
+  void layerorder(bitree * r)
+  {
+
+      if(r != NULL)
+      {
+          linkqueue* queue=queue_create();
+          enqueue(queue,r);
+          while(!queue_empty(queue))
+          {
+              bitree* trNode=dequeue(queue);
+              printf("%c",trNode->data);
+              if(trNode->left)
+              {
+                  enqueue(queue,trNode->left);
+              }
+
+              if(r->right)
+              {
+                  enqueue(queue,trNode->right);
+              }
+
+          }
+
+
+      }
+  }
+
+#+END_SRC
+**** 测试函数
+#+BEGIN_SRC C :main no :tangle main.c
+  #include <stdio.h>
+  #include "BTree.h"
+  #include "LinkQueue.h"
+  int main(int argc, const char *argv[])
+  {
+      bitree * r;
+
+      //r = tree_create();
+
+      char ch[]={' ','a','b','c','d','e','f'};
+      int n=sizeof(ch)/sizeof(char);
+      int i=1;
+      r=fulltree_create(ch,n,i);
+
+      preorder(r);
+      puts("");
+
+      inorder(r);
+      puts("");
+
+      postorder(r);
+      puts("");
+
+      layerorder(r);
+      return 0;
+  }
+
+#+END_SRC
+**** Makefile
+#+BEGIN_SRC makefile :tangle Makefile
+  OBJS=BTree.o main.o
+  CC=gcc
+  CFLAGS= -g -Wall
+  BTree:BTree.o main.o
+      $(CC) $(CFLAGS) -o $@ @^
+  BTree.o:BTree.c
+      $(CC) $(CFLAGS) -c $@ $<
+  main.o:main.c
+      $(CC) $(CFLAGS) -c $@ $<
+  clean:
+      rm *.o BTree
+#+END_SRC

@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include<stdlib.h>
+#include"GTree.h"
+#include"LinkList.h"
+typedef struct _tag_GTreeeNode GTreeNode;
+struct _tag_GTreeeNode
+{
+
+    GTreeNodeData* data;
+    GTreeNode* parent;
+    LinkList* child;
+};
+
+typedef struct _tag_TLNode TLNode;
+struct _tag_TLNode
+{
+
+    LinkListNode header;
+    GTreeNode* node;
+};
+
+GTree* GTree_Create()
+{
+
+    return LinkList_Create;
+}
+
+void GTree_Destroy()
+{
+
+    GTree_Clear(tree);
+    LinkList_Destroy(tree);
+}
+/*
+1.整棵树用链表来组织,元素在组织链表中的位置和元素在树中的位置无关
+2.元素插入时是把它当作某个元素的孩子节点来插入,元素的实际位置其实就是在孩子链表中.
+3.首先为插入的节点申请空间(cNode),然后为元素初始化,data等于传进来的数据,parent先赋值为空,因为我们不知道它是否有父亲节点,其孩子节点是一个链表,即创建一个链表即可.
+4.其次为其申请树节点(trNode)空间,因为我们要将其插入树节点,即组织链表中
+5.然后为其申一个孩子节点空间(cldNode),因为我们要将其作为某个元素的孩子节点插入其孩子的链表.
+6.然后然树节点指向cNode
+7.让孩子节点指向cnode
+8.调用链表插入函数,把trNode插入组织链表
+9.然后调用函数得到父亲节点,因为我需要将节点的parent指针指向Pnode,假如PNode不为空,我们将cNode的parent 指针指向PNode
+10.然后我们调用插入函数,将cldNode节点插入PNode的child链表.
+11.假如PNode为空,则释放所有申请的空间
+
+ */
+int GTree_Insert(GTree* tree,GTreeData* data,int pPos)
+{
+    LinkList* list=(LinkList*)tree;
+    int ret=(list != NULL) && (data != NULL)&& (0<=pPos)&&(pPos <LinkList_Length(list));
+    if(ret)
+    {
+        GTreeNode* cNode=(GTreeNode*)malloc(sizeof(GTreeNode));
+        TLNode* trNode=(TLNode*)malloc(sizeof(TLNode));
+        TLNode* cldNode=(TLNode*)malloc(sizeof(TLNode));
+        TLNode* pNode=(TLNode*)LinkList_Get(list,pPos);
+        ret=(cNode != NULL) && (trNode != NULL) &&(cldNode != NULL);
+        if(ret)
+        {
+
+            cNode->data=data;
+            cNode->parent=NULL;
+            cNode->child=LinkList_Create();
+
+            trNode->node=node;
+            cldNode->node=node;
+
+            LinkList_Insert(list,(LinkListNode*))trNode,LinkList_Length(list);
+            if(pNode !=NULL)
+            {
+
+                cNode->parent=pNode->node;
+                LinkList_Insert(pNode->node->child,(LinkListNode*)cldNode,LinkList_Length(pNode->node->child));
+            }
+        }else
+        {
+
+            free(cNode);
+            cNode=NULL;
+            free(trNode);
+            trNode(NULL);
+            free(cldNode);
+            cldNode=NULL;
+        }
+
+    }
+    return ret;
+
+}
+
+GTreeData* GTree_Delete(GTree* tree,int pos)
+{
+
+    TLNode* trNode=(TLNode*)LinkList_Get_ByPos(tree,pos);
+}

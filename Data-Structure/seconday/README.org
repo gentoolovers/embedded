@@ -1,0 +1,822 @@
+* 第二天<2016-07-22 Fri>
+** 代码练习
+*** 链式栈
+**** 头文件
+#+BEGIN_SRC  C
+  typedef int datatype;
+  typedef  void LinkStack ;
+  typedef _tag_LinkStackNode LinkStackNode;
+  struct _tag_LinkStackNode {
+    LinkStackNode* next;
+  }
+
+  LinkStack* LinkStack_Create();
+
+  int LinkStack_Push(LinkStack* stack,LinkListNode* node);
+  void* LinkStack_Pop(LinkStack* stack);
+  int LinkStack_Clear(LinkStack* stack);
+  int LinkStack_Empty(LinkStack* stack);
+  void* LinkStack_Top(LinkStack* stack);
+
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC  C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "LinkStack.h"
+  typedef struct _tag_LinkStack
+  {
+
+    LinkStackNode header;
+    int length;
+  }TLinkStack;
+
+  LinkStack* LinkStack_Create()
+  {
+
+    TLinkStack* ret=(TLinkStack*)malloc(sizeof(TLinkStack));
+    if(ret == NULL)
+      {
+
+        printf("malloc LinkStack failed");
+      }else{
+      ret->length=0;
+      ret->header.next=NULL;
+
+    }
+    return ret;
+  }
+
+  int LinkStack_Push(LinkStack* stack,LinkListNode* node)
+  {
+    TLinkStack* TStack=(TLinkStack*)stack;
+    int ret=(TStack != NULL) && (node != NULL);
+    if(ret)
+      {
+        LinkStackNode* current=(LinkStackNode*)TStack;
+        node->next=current->next;
+        current->next=node;
+        TStack->length++;
+      }
+    return ret;
+  }
+
+  LinkStackNode* LinkStack_Pop(LinkStack* stack)
+  {
+
+    TLinkStack* TStack=(TLinkStack*)stack;
+    LinkStackNode* ret=NULL;
+    if(TStack != NULL && TStack->length>0)
+      {
+
+        LinkListNode* current=(LinkListNode*)TStack;
+            ret=current->next;
+
+    
+      }
+  }
+  void* LinkStack_Top(LinkStack* stack)
+  {
+
+    TLinkStack* TStack=(TLinkStack*)stack;
+    LinkStackNode* node=(LinkStackNode*)TStack;
+    void* ret=NULL;
+    if(TStack !=NULL && node->next != NULL )
+      {
+        ret=node->next;
+
+      }
+    return ret;
+  }
+
+
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+
+#+END_SRC
+
+*** 顺序队列
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+  #define N 5
+
+  typedef struct {
+    datatype data[N];
+    int front;
+    int rear;
+  }sequeue;
+
+  sequeue * queue_create();
+  int queue_empty(sequeue *sq);
+  int inqueue(sequeue * sq, datatype value);
+  datatype dequeue(sequeue * sq);
+  int queue_full(sequeue * sq);
+  int queue_clear(sequeue * sq);
+  typedef int datatype;
+  #define N 5
+
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include "sequeue.h"
+
+  sequeue * queue_create() {
+    sequeue* ret=NULL;
+    ret=(sequeue*)malloc(sizeof(sequeue));
+    if(ret=NULL)
+      {
+
+        printf("malloc sequeue failed");
+        return ret;
+      }
+    bzero(sq->data,sizeof(sq->data));
+    ret->front=0;
+    ret->rear=0;
+    return ret;
+  }
+  int queue_empty(sequeue *sq) {
+
+    int ret=(sq != NULL);
+    if(ret)
+      {
+
+        if(sq->front==sq->rear)
+          {
+
+            return ret;
+          }else{
+          return 0;
+        }
+
+      }
+    return ret;
+  }
+  int inqueue(sequeue * sq, datatype value){
+    int ret=(sq != NULL) && (rear+1)%N != front;
+    if(ret)
+      {
+        sq->node[sq->rear]=value;
+        sq->rear=(sq->rear+1)/N;
+   
+      }
+    return ret;
+  }
+  datatype dequeue(sequeue * sq){
+    int ret=(sq != NULL)&& (sq->front != sq->rear);
+    if(ret) {
+      sq->ret=sq->node[sq->front];
+      sq->front=(sq->front+1)%N;
+
+      }
+    return ret;
+  }
+  int queue_full(sequeue * sq){
+    int ret=(sq != NULL);
+    if(ret && (sq->rear+1)%N == sq->front)
+      {
+        return ret;
+
+      }
+    return ret;
+  }
+  int queue_clear(sequeue * sq){
+    int ret=(sq != NULL)
+      if(ret) {
+
+        sq->front == sq->rear;
+      }
+    return ret;
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "sequeue.h"
+
+  int main(int argc, const char *argv[])
+  {
+    sequeue * sq;
+
+    if ((sq = queue_create()) == NULL) {
+      return 0;
+    }
+    
+    enqueue(sq, 30);
+    enqueue(sq, 60);
+    enqueue(sq, 90);
+
+    while (!queue_empty(sq)) {
+      printf("%d ", dequeue(sq));
+    }
+    puts("");
+    free(sq);
+    sq=NULL;
+    return 0;
+  }
+#+END_SRC
+**** Makefile
+#+BEGIN_SRC makefile
+  OBJS=SeqQueue.o main.o
+  CC=gcc
+  CFLAGS= -g -Wall
+  SeqQueue:$(OBJS)
+      $(CC) $(CFLAGS) -o $@ $^
+  SeqQueue.o:SeqQueue.c SeqQueue.h
+      $(CC) $(CFLAGS) -o $@ $^
+  main.o:main.c SeqQueue.h
+      $(CC) $(CFLAGS) -o $@ $^
+
+#+END_SRC
+*** 链式队列
+**** 头文件
+#+BEGIN_SRC C :main no 
+  typedef int datatype;
+  typedef struct node {
+    datatype data;
+    struct node *next;
+  }listnode,*linklist;
+
+  typedef struct {
+
+    linklist front;
+    linklist rear;
+  }linkqueue;
+  linkqueue*  queue_create();
+  int queue_empty(linkqueue *lqueue);
+  int enqueue(linkqueue *lq,datatype value);
+  datatype dequeue(linkqueue *lqueue);
+  int queue_clear(linkqueue *lqueue);
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC C :main no 
+  #include <stdio.h>
+  #include<stdlib.h>
+  #include<string.h>
+  #include"LinkQueue.h"
+  /*
+    先在堆空间上申请表头,申请成功后初始化表头
+    然后在堆空间上申请头指针和尾指针,申请成功后初始化.
+    空队列头指针和尾指针都指向表头
+
+  ,*/
+  linkqueue* queue_create() {
+    linklist list=(linklist)malloc(sizeof(listnode));
+    linkqueue* ret=(linkqueue*)malloc(sizeof(linkqueue));
+
+    if(list !=NULL)
+      {
+
+        list->data=0;
+        list->next=NULL;
+      }else
+      {
+        printf("malloc listnode failed");
+        return NULL;
+      }
+
+
+    if(ret !=NULL)
+      {
+
+        ret->front=list;
+        ret->rear=list;
+      }else
+      {
+        printf("malloc linkqueue failed");
+        return NULL;
+
+      }
+
+    return ret;
+  }
+
+
+  int queue_empty(linkqueue *lqueue) {
+
+    return (lqueue !=NULL) && (lqueue->front ==lqueue->rear ? 1:0);
+  }
+
+  /*
+    首先在堆空间上申请元素空间,申请成功后.
+    申请成功后赋值,因为是尾插,所以指针域指向空,数据与赋值为传进来的数据
+    然后把上个元素的 next 指针指向插入的元素
+    最后把标识尾部的 rear 指针指向该元素
+  ,*/
+  int enqueue(linkqueue *lqueue,datatype value) {
+    linklist node=(linklist)malloc(sizeof(listnode));
+    if(node != NULL)
+      {
+
+        node->data=value;
+        node->next=NULL;
+        lqueue->rear->next=node;
+        lqueue->rear=node;
+        return 0;
+      }else
+      {
+
+        printf("malloc linklist failed");
+        return -1;
+      }
+
+  }
+  /*
+     先把表头指向的第一个元素(即要删除释放的元素)赋值给一个临时变量
+     然后把 front 指向临时变量的 next(即临时变量的下一个元素),因为 front 指针是用来标识第一个元素的.  
+     然后释放临时变量(tmp)的空间,把 tmp 置空
+
+     返回的值是当前表头所值的第一个元素)(即队列的第一个元素)  
+  ,*/
+  datatype dequeue(linkqueue *lqueue) {
+
+    if(lqueue != NULL)
+      {
+        listnode* tmp=lqueue->front;
+
+        lqueue->front=tmp->next;
+        free(tmp);
+        tmp=NULL;
+      }
+    return (lqueue->front->data);
+  }
+
+
+  /*
+    相当与删除所有元素,与删除的原理相同
+  ,*/
+
+
+  int queue_clear(linkqueue *lqueue) {
+
+    if(lqueue !=NULL)
+      {
+        listnode* tmp=lqueue->front;
+
+        while(lqueue->front != NULL)
+          {
+            tmp=lqueue->front;
+            lqueue->front=tmp->next;
+            free(tmp);
+            tmp=NULL;
+
+          }
+      }
+    return 0;
+  }
+  /*
+    清空队列后,再加一步释放 front rear 指针
+  ,*/
+  int queue_free(linkqueue *lqueue) {
+    if(lqueue !=NULL)
+      {
+
+        listnode* tmp=lqueue->front;
+        while(lqueue->front != NULL)
+          {
+            tmp=lqueue->front;
+            lqueue->front=tmp->next;
+            free(tmp);
+            tmp=NULL;
+          }
+        free(lqueue);
+        lqueue=NULL;
+      }
+    return 0;
+
+  }
+
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C 
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include "LinkQueue.h"
+
+    int main(int argc, const char *argv[])
+    {
+      linkqueue * lq;
+
+      lq = queue_create();
+
+      enqueue(lq, 1);
+      enqueue(lq, 91);
+      enqueue(lq, 7);
+      enqueue(lq, 86);
+
+      //queue_free(lq);
+      //queue_clear(lq);
+  
+      while (!queue_empty(lq)) {
+        printf("%d ", dequeue(lq));
+      }
+      //queue_free(lq);
+      puts("");
+
+
+      return 0;
+    }
+#+END_SRC
+** 老师代码
+*** 链式栈
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+
+  typedef struct node{
+    datatype data;
+    struct node * next;
+  }listnode, *linkstack;
+
+  linkstack stack_create();
+  int push(linkstack s, datatype value);
+  datatype pop(linkstack s);
+  int stack_free(linkstack s);
+  int stack_empty(linkstack s);
+  datatype top(linkstack s);
+
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC  C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "stack.h"
+
+  linkstack stack_create() {
+    linkstack s;
+
+    if ((s = (linkstack)malloc(sizeof(listnode))) == NULL) {
+      printf("malloc faild\n");
+      return NULL;
+    }
+    s->data = 0;
+    s->next = NULL;
+
+    return s;
+  }
+
+  int push(linkstack s, datatype value) {
+    linkstack p;
+
+    if ((p = (linkstack)malloc(sizeof(listnode))) == NULL) {
+      printf("malloc faild\n");
+      return -1;
+    }
+    p->data = value;
+
+    p->next = s->next;
+    s->next = p;
+    
+    return 0;
+  }
+
+  datatype pop(linkstack s) {
+    linkstack p;
+    datatype ret;
+
+    p = s->next;
+    s->next = p->next;
+
+    ret = p->data;
+    free(p);
+    p = NULL;
+
+    return ret;
+  }
+
+  int stack_free(linkstack s) {
+    linkstack p;
+
+    printf("free:");
+    while (s != NULL) {
+      p = s;
+      s = s->next;
+      printf("%d ", p->data);
+      free(p);
+      p = NULL;
+    }
+    puts("");
+
+    return 0;
+  }
+
+  /*
+   ,* ret:1 empty   
+   ,* */
+  int stack_empty(linkstack s) {
+    return  (s->next == NULL);
+  }
+
+  datatype top(linkstack s) {
+    return (s->next->data);
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <string.h>
+  #include "stack.h"
+
+  int main(int argc, const char *argv[])
+  {
+    linkstack s;
+
+    if ((s = stack_create()) == NULL) {
+      return 0;
+    }
+
+    push(s, 69);
+    push(s, 39);
+    push(s, 19);
+
+    stack_free(s);
+
+  #if 0
+    if (!stack_empty(s) ) {
+      printf("top:%d\n", top(s));
+    }
+
+    while (!stack_empty(s)) {
+      printf("%d \n", pop(s) );
+    }
+  #endif
+
+    return 0;
+  }
+
+#+END_SRC
+*** 线性队列
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+  #define N 100
+
+  typedef struct {
+    datatype data[N];
+    int front;
+    int rear;
+  }sequeue;
+
+  sequeue * queue_create();
+  int queue_empty(sequeue *sq);
+  int enqueue(sequeue * sq, datatype value);
+  datatype dequeue(sequeue * sq);
+  int queue_full(sequeue * sq);
+  int queue_clear(sequeue * sq);
+
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <strings.h>
+  #include "sequeue.h"
+
+  sequeue * queue_create() {
+    sequeue * sq;
+
+    if ((sq = (sequeue *)malloc(sizeof(sequeue))) == NULL) {
+      printf("malloc\n");
+      return NULL;
+    }
+    bzero(sq->data, sizeof(sq->data));
+    sq->front = sq->rear = 0;
+    return sq;
+  }
+
+  int queue_empty(sequeue *sq){
+    if (sq->front == sq->rear) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  int enqueue(sequeue * sq, datatype value){
+    if ((sq->rear+1) % N == sq->front) {
+      printf("full\n");
+      return -1;
+    }
+    sq->data[sq->rear] = value;
+    sq->rear = (sq->rear + 1) % N;
+
+    return 0;
+  }
+
+  datatype dequeue(sequeue * sq){
+    datatype ret;
+
+    ret = sq->data[sq->front];
+
+    sq->front = (sq->front+1) % N;
+
+    return ret;
+  }
+
+
+  int queue_full(sequeue * sq){
+    if ((sq->rear+1) % N == sq->front) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  int queue_clear(sequeue * sq){
+    bzero(sq->data, sizeof(sq->data));
+    sq->front = sq->rear;
+
+    return 0;
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "sequeue.h"
+
+  int main(int argc, const char *argv[])
+  {
+    sequeue * sq;
+
+    if ((sq = queue_create()) == NULL) {
+      return 0;
+    }
+    
+    enqueue(sq, 30);
+    enqueue(sq, 60);
+    enqueue(sq, 90);
+    enqueue(sq, 120);
+    enqueue(sq, 150);
+
+    while (!queue_empty(sq)) {
+      printf("%d ", dequeue(sq));
+    }
+    puts("");
+
+
+    free(sq);
+    sq = NULL;
+
+    return 0;
+  }
+
+#+END_SRC
+*** 链式队列
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+
+  typedef struct node {
+    datatype data;
+    struct node * next;
+  }listnode, * linklist;
+
+  typedef struct {
+    linklist front;//listnode * front;  //struct node * front;
+    linklist rear;
+  }linkqueue;
+
+  linkqueue * queue_create();
+  int queue_empty(linkqueue * lq);
+  int enqueue(linkqueue *lq, datatype value);
+  datatype dequeue(linkqueue *lq);
+  int queue_clear(linkqueue *lq);
+  int queue_free(linkqueue *lq);
+
+#+END_SRC
+**** 实现文件
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "linkqueue.h"
+
+  linkqueue * queue_create() {
+      linklist p;
+      linkqueue * lq;
+
+      if ((p = (linklist)malloc(sizeof(listnode))) == NULL) {
+          return NULL;
+      }
+      p->data = 0;
+      p->next = NULL;
+
+      if ((lq = (linkqueue*)malloc(sizeof(linkqueue))) == NULL) {
+          return NULL;
+      }
+      lq->front = p;
+      lq->rear = p;
+
+      printf("%p\n", lq);
+      return lq;
+  }
+
+  int queue_empty(linkqueue * lq) {
+      return (lq->front->next == NULL);
+      //return (lq->front == lq->rear);
+  }
+
+  int enqueue(linkqueue *lq, datatype value) {
+      linklist p;
+
+      if ((p = (linklist)malloc(sizeof(listnode))) == NULL) {
+          return -1;
+      }
+      p->data = value;
+      p->next=NULL;
+      lq->rear->next = p;
+      lq->rear = p;
+
+      return 0;
+  }
+
+  datatype dequeue(linkqueue *lq) {
+      linklist p;
+      p  = lq->front;
+      lq->front = p->next;
+      free(p);
+      p = NULL;
+
+      return (lq->front->data);
+  }
+
+  int queue_clear(linkqueue *lq) {
+      linklist p;
+
+      printf("clear:");
+      while (lq->front->next != NULL) {
+          p = lq->front;
+          lq->front = p->next;
+          printf("%d ", p->data);
+          free(p);
+      }
+
+      return 0;
+  }
+
+  int queue_free(linkqueue *lq) {
+      linklist p;
+
+      p = lq->front;
+
+      printf("free:");
+      while (p != NULL) {
+          lq->front = p->next;
+          printf("%d ", p->data);
+          free(p);
+          p = lq->front;
+      }
+      puts("");
+
+      printf("%p\n", lq);
+      free(lq);
+
+      return 0;
+  }
+
+#+END_SRC
+
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "linkqueue.h"
+
+  int main(int argc, const char *argv[])
+  {
+    linkqueue * lq;
+
+    lq = queue_create();
+
+    enqueue(lq, 1);
+    enqueue(lq, 91);
+    enqueue(lq, 7);
+    enqueue(lq, 86);
+
+    queue_free(lq);
+    //queue_clear(lq);
+  #if 0
+    while (!queue_empty(lq)) {
+      printf("%d ", dequeue(lq));
+    }
+  #endif
+
+    puts("");
+
+
+    return 0;
+  }
+
+#+END_SRC

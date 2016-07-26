@@ -1,0 +1,782 @@
+* 第一天<2016-07-21 Thu>
+** 老师代码
+*** 线性表
+**** 头文件
+#+BEGIN_SRC C
+  #define N 50
+  #define SIZE 100
+  typedef struct book {
+    int no;
+    char name[N];
+  }Book;
+
+  typedef Book datatype;
+
+  typedef struct {
+    datatype data[SIZE];
+    int last;
+  }sqlist;
+
+  sqlist * list_create();
+  void list_clear(sqlist * L);
+  int list_empty(sqlist * L);
+  int list_locate(sqlist * L, datatype value);
+  int list_insert(sqlist * L, datatype value, int pos);
+  int list_delete(sqlist * L, int pos);
+  int list_show(sqlist * L);
+
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC  C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include "sqlist.h"
+
+  /*
+   ,* create a empty list
+   ,* @ret:start address
+   ,* */
+  sqlist * list_create() {
+      sqlist * L;
+
+      if ((L = (sqlist *)malloc(sizeof(sqlist))) == NULL) {
+          printf("malloc failed\n");
+          return NULL;
+      }
+
+      L->last = -1;
+      return L;
+  }
+
+  void list_clear(sqlist * L) {
+      L->last = -1;
+  //  free(L);
+  //  L=NULL;
+  }
+
+  /*
+   ,* @ret: 1  empty
+   ,* */
+  int list_empty(sqlist * L) {
+      return ((L->last == -1) ? 1 : 0);
+  }
+
+  int list_locate(sqlist * L, datatype value) {
+      int i;
+
+      for (i = 0; i <= L->last; ) {
+      //  if((L->data[i].no == value.no) && 
+                  //strcmp(L->data[i].name, value.name) == 0) {
+          if (memcmp(&(L->data[i]), &value, sizeof(Book)) != 0) {
+              i++;
+          }
+          else 
+              return i;
+      }
+
+      return -1;
+  }
+
+  int list_insert(sqlist * L, datatype value, int pos) {
+      //list is full
+      if (L->last == SIZE - 1) {
+          printf("full\n");
+          return -1;
+      }
+
+      //pos [0,last+1]
+      if (pos < 0 || pos > L->last+1) {
+          printf("insert position is invalid\n");
+          return -1;
+      }
+
+      int i;
+      for (i = L->last; i >= pos; i--) {
+          L->data[i+1] = L->data[i];
+      }
+      L->data[pos] = value;
+      L->last++;
+      return 0;
+  }
+
+  int list_delete(sqlist * L, int pos) {
+      if (L->last == - 1) {
+          printf("empty\n");
+          return -1;
+      }
+
+      //pos [0, last]
+      if (pos < 0 || pos > L->last) {
+          printf("Delete position is invalid\n");
+          return -1;
+      }
+
+      int i;
+
+      for (i = pos+1; i <= L->last; i++){
+          L->data[i-1] = L->data[i];
+      }
+      L->last--;
+
+      return 0;
+  }
+
+  int list_show(sqlist * L) {
+      int i;
+
+      puts("-------------------");
+      for (i = 0; i <= L->last; i++) {
+          printf("%d %s\n", L->data[i].no, L->data[i].name);
+      }
+
+      return 0;
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <string.h>
+  #include "sqlist.h"
+
+  int main(int argc, const char *argv[])
+  {
+    Book arr[] = {{1, "clang"}, {2, "math"}, {3, "C"}};
+    sqlist * L = NULL;
+    int i;
+
+    L = list_create();//empty list
+
+    for (i = 0; i < sizeof(arr)/sizeof(Book); i++) {
+      list_insert(L, arr[i], i);
+    }
+
+    list_show(L);
+
+    Book tmp={2, "math"};
+
+    if (list_locate(L, tmp) == -1) {
+      printf("not exist\n");
+    }
+    else {
+      printf("exist\n");
+    }
+
+    list_show(L);
+
+
+
+    /*
+
+      Book book1={8, "C++"};
+      list_insert(L, book1, 4);
+
+      list_show(L);
+
+      //list_delete(L, 2);
+      list_show(L);
+
+
+      if (memcmp(&book1, &book2, sizeof(Book)) == 0){
+      printf("=\n");
+      }
+      else {
+      printf("!=\n");
+      }
+    ,*/
+    
+    return 0;
+  }
+
+#+END_SRC
+*** 单链表
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+
+  typedef struct node {
+    datatype data;
+    struct node * next;
+  }listnode, *linklist;//typedef struct node * linklist;
+
+  linklist list_create();
+  linklist head_insert(linklist H, datatype value);
+  void list_show(linklist H);
+  linklist list_insert(linklist H, datatype value, int pos);
+  linklist list_delete(linklist H, int pos);
+  int list_sort(linklist H);
+  int list_reverse(linklist H);
+
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "linklist.h"
+
+  linklist list_create() {
+      linklist H;
+
+      if((H = (linklist)malloc(sizeof(listnode))) == NULL) {
+          printf("malloc faild\n");
+          return NULL;
+      }
+      H->next = NULL;
+
+      return H;
+  }
+
+
+  int head_insert(linklist H, datatype value) {
+      linklist p;
+
+      if((p = (linklist)malloc(sizeof(listnode))) == NULL) {
+          printf("malloc faild\n");
+          return -1;
+      }
+      p->data = value;
+
+      p->next = H->next;
+      H->next = p;
+  
+      return 0; 
+  }
+
+
+  void list_show(linklist H) {
+      while (H->next != NULL) {
+          printf("%d ", H->next->data);
+          H = H->next;
+      }
+      puts("");
+  }
+
+  int list_insert(linklist H, datatype value, int pos) {
+      linklist p = H, q;
+      int i = 0;
+
+      if (pos < 0) {
+          printf("Insert pos invald\n");
+          return -1;
+      }
+
+      while (i < pos) {
+          p = p->next;
+          if (p == NULL) {
+              printf("Insert pos invald\n");
+              return -1;
+          }
+          i++;
+      }
+
+      if((q = (linklist)malloc(sizeof(listnode))) == NULL) {
+          printf("malloc faild\n");
+          return -1;
+      }
+      q->data = value;
+
+      q->next = p->next;
+      p->next = q;
+
+      return 0;
+  }
+
+  int list_delete(linklist H, int pos) {
+      linklist p = H, q;
+      int i = 0;
+
+      if (pos < 0) {
+          printf("Delete pos invalid\n");
+          return -1;
+      }
+
+      while (i < pos) {
+          p = p->next;
+          if (p == NULL) {
+              printf("Delete pos invalid\n");
+              return -1;
+          }
+          i++;
+      }
+      if (p->next == NULL) {
+          printf("Delete pos invalid\n");
+          return -1;
+      }
+
+      q = p->next;
+      p->next = q->next;
+      free(q);
+      q = NULL;
+
+      return 0;
+  }
+
+  int list_sort(linklist H){
+      linklist p = H->next, q, r;
+      H->next = NULL;
+
+      while (p != NULL) {
+          q = p;
+          p = p->next;
+
+          r = H;
+          while (r->next != NULL && r->next->data < q->data) {
+              r = r->next;
+          }
+          q->next = r->next;
+          r->next = q;
+      }
+      return 0;
+  }
+
+  int list_reverse(linklist H) {
+      linklist p = H->next, q;
+      H->next = NULL;
+
+      while (p != NULL) {
+          q = p;
+          p = p->next;
+  
+          q->next = H->next;
+          H->next = q;
+      }
+
+      return 0;
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  nclude <stdio.h>
+  #include <stdlib.h>
+  #include "linklist.h"
+
+  int main(int argc, const char *argv[])
+  {
+    linklist H = NULL;
+
+    H = list_create();
+
+    head_insert(H, 10);
+    head_insert(H, 80);
+    head_insert(H, 20);
+
+    list_show(H);
+    list_insert(H, 30, 2);
+    list_show(H);
+
+    list_delete(H, 4);
+    list_show(H);
+
+    list_reverse(H);
+    list_show(H);
+
+    list_sort(H);
+    list_show(H);
+
+    return 0;
+  }
+
+#+END_SRC
+* 第二天<2016-07-22 Fri>
+** 老师代码
+*** 链式栈
+**** 头文件
+#+BEGIN_SRC C
+  typedef int datatype;
+
+  typedef struct node{
+    datatype data;
+    struct node * next;
+  }listnode, *linkstack;
+
+  linkstack stack_create();
+  int push(linkstack s, datatype value);
+  datatype pop(linkstack s);
+  int stack_free(linkstack s);
+  int stack_empty(linkstack s);
+  datatype top(linkstack s);
+
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC  C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "stack.h"
+
+  linkstack stack_create() {
+    linkstack s;
+
+    if ((s = (linkstack)malloc(sizeof(listnode))) == NULL) {
+      printf("malloc faild\n");
+      return NULL;
+    }
+    s->data = 0;
+    s->next = NULL;
+
+    return s;
+  }
+
+  int push(linkstack s, datatype value) {
+    linkstack p;
+
+    if ((p = (linkstack)malloc(sizeof(listnode))) == NULL) {
+      printf("malloc faild\n");
+      return -1;
+    }
+    p->data = value;
+
+    p->next = s->next;
+    s->next = p;
+    
+    return 0;
+  }
+
+  datatype pop(linkstack s) {
+    linkstack p;
+    datatype ret;
+
+    p = s->next;
+    s->next = p->next;
+
+    ret = p->data;
+    free(p);
+    p = NULL;
+
+    return ret;
+  }
+
+  int stack_free(linkstack s) {
+    linkstack p;
+
+    printf("free:");
+    while (s != NULL) {
+      p = s;
+      s = s->next;
+      printf("%d ", p->data);
+      free(p);
+      p = NULL;
+    }
+    puts("");
+
+    return 0;
+  }
+
+  /*
+   ,* ret:1 empty   
+   ,* */
+  int stack_empty(linkstack s) {
+    return  (s->next == NULL);
+  }
+
+  datatype top(linkstack s) {
+    return (s->next->data);
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <string.h>
+  #include "stack.h"
+
+  int main(int argc, const char *argv[])
+  {
+    linkstack s;
+
+    if ((s = stack_create()) == NULL) {
+      return 0;
+    }
+
+    push(s, 69);
+    push(s, 39);
+    push(s, 19);
+
+    stack_free(s);
+
+  #if 0
+    if (!stack_empty(s) ) {
+      printf("top:%d\n", top(s));
+    }
+
+    while (!stack_empty(s)) {
+      printf("%d \n", pop(s) );
+    }
+  #endif
+
+    return 0;
+  }
+
+#+END_SRC
+*** 线性队列
+**** 头文件
+#+BEGIN_SRC C
+  typedef int sequeuenode;
+  #define N 100
+
+  typedef struct {
+    sequeuenode data[N];
+    int front;
+    int rear;
+  }sequeue;
+
+  sequeue * queue_create();
+  int queue_empty(sequeue *sq);
+  int enqueue(sequeue * sq, sequeuenode value);
+  sequeuenode dequeue(sequeue * sq);
+  int queue_full(sequeue * sq);
+  int queue_clear(sequeue * sq);
+
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <strings.h>
+  #include "sequeue.h"
+
+  sequeue * queue_create() {
+    sequeue * sq;
+
+    if ((sq = (sequeue *)malloc(sizeof(sequeue))) == NULL) {
+      printf("malloc\n");
+      return NULL;
+    }
+    bzero(sq->data, sizeof(sq->data));
+    sq->front = sq->rear = 0;
+    return sq;
+  }
+
+  int queue_empty(sequeue *sq){
+    if (sq->front == sq->rear) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  int enqueue(sequeue * sq, sequeuenode value){
+    if ((sq->rear+1) % N == sq->front) {
+      printf("full\n");
+      return -1;
+    }
+    sq->data[sq->rear] = value;
+    sq->rear = (sq->rear + 1) % N;
+
+    return 0;
+  }
+
+  sequeuenode dequeue(sequeue * sq){
+    sequeuenode ret;
+
+    ret = sq->data[sq->front];
+
+    sq->front = (sq->front+1) % N;
+
+    return ret;
+  }
+
+
+  int queue_full(sequeue * sq){
+    if ((sq->rear+1) % N == sq->front) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+
+  int queue_clear(sequeue * sq){
+    bzero(sq->data, sizeof(sq->data));
+    sq->front = sq->rear;
+
+    return 0;
+  }
+
+#+END_SRC
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "sequeue.h"
+
+  int main(int argc, const char *argv[])
+  {
+    sequeue * sq;
+
+    if ((sq = queue_create()) == NULL) {
+      return 0;
+    }
+    
+    enqueue(sq, 30);
+    enqueue(sq, 60);
+    enqueue(sq, 90);
+    enqueue(sq, 120);
+    enqueue(sq, 150);
+
+    while (!queue_empty(sq)) {
+      printf("%d ", dequeue(sq));
+    }
+    puts("");
+
+
+    free(sq);
+    sq = NULL;
+
+    return 0;
+  }
+
+#+END_SRC
+*** 链式队列
+**** 头文件
+#+BEGIN_SRC C :main no :tangle LinkQueue.h
+  #ifndef _LINKQUEUE_H_
+  #define _LINKQUEUE_H_
+  #include "BTree.h"
+  typedef bitree* linkqueuenode;
+
+  typedef struct _tag_linkqueue {
+    linkqueuenode data;
+    struct _tag_linkqueue * next;
+  }listnode, * linklist;
+
+  typedef struct {
+    linklist front;//listnode * front;  //struct node * front;
+    linklist rear;
+  }linkqueue;
+
+  linkqueue * queue_create();
+  int queue_empty(linkqueue * lq);
+  int enqueue(linkqueue *lq, linkqueuenode value);
+  linkqueuenode dequeue(linkqueue *lq);
+  int queue_clear(linkqueue *lq);
+  int queue_free(linkqueue *lq);
+
+  #endif
+#+END_SRC
+**** 源代码文件
+#+BEGIN_SRC C :main no :tangle LinkQueue.c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "LinkQueue.h"
+
+  linkqueue * queue_create() {
+      linklist p;
+      linkqueue * lq;
+
+      if ((p = (linklist)malloc(sizeof(listnode))) == NULL) {
+          return NULL;
+      }
+      p->data = 0;
+      p->next = NULL;
+
+      if ((lq = (linkqueue*)malloc(sizeof(linkqueue))) == NULL) {
+          return NULL;
+      }
+      lq->front = p;
+      lq->rear = p;
+
+      printf("%p\n", lq);
+      return lq;
+  }
+
+  int queue_empty(linkqueue * lq) {
+      return (lq->front->next == NULL);
+      //return (lq->front == lq->rear);
+  }
+
+  int enqueue(linkqueue *lq, linkqueuenode value) {
+      linklist p;
+
+      if ((p = (linklist)malloc(sizeof(listnode))) == NULL) {
+          return -1;
+      }
+      p->data = value;
+      p->next=NULL;
+      lq->rear->next = p;
+      lq->rear = p;
+
+      return 0;
+  }
+
+  linkqueuenode dequeue(linkqueue *lq) {
+      linklist p;
+      p  = lq->front;
+      lq->front = p->next;
+      free(p);
+      p = NULL;
+
+      return (lq->front->data);
+  }
+
+  int queue_clear(linkqueue *lq) {
+      linklist p;
+
+      printf("clear:");
+      while (lq->front->next != NULL) {
+          p = lq->front;
+          lq->front = p->next;
+          //printf("%d ", p->data);
+          free(p);
+      }
+
+      return 0;
+  }
+
+  int queue_free(linkqueue *lq) {
+      linklist p;
+
+      p = lq->front;
+
+      printf("free:");
+      while (p != NULL) {
+          lq->front = p->next;
+          // printf("%d ", p->data);
+          free(p);
+          p = lq->front;
+      }
+      puts("");
+
+      printf("%p\n", lq);
+      free(lq);
+
+      return 0;
+  }
+
+#+END_SRC
+
+**** 主函数
+#+BEGIN_SRC C
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include "linkqueue.h"
+
+  int main(int argc, const char *argv[])
+  {
+    linkqueue * lq;
+
+    lq = queue_create();
+
+    enqueue(lq, 1);
+    enqueue(lq, 91);
+    enqueue(lq, 7);
+    enqueue(lq, 86);
+
+    queue_free(lq);
+    //queue_clear(lq);
+  #if 0
+    while (!queue_empty(lq)) {
+      printf("%d ", dequeue(lq));
+    }
+  #endif
+
+    puts("");
+
+
+    return 0;
+  }
+
+#+END_SRC
+* 第三天<2016-07-22 sa>
