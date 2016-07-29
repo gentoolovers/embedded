@@ -22,7 +22,7 @@
 
   typedef struct {
 
-    DataType data[SIZE];
+    datatype data[SIZE];
     int last;
   }SeqList;
   SeqList* SeqList_Create();

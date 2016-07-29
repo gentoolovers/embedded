@@ -60,7 +60,7 @@ vipw :
 usermod -g test test:改变用户所数组  
 usermod -d /home/newname -m -l newname oldname:-d 新的家目录 -m 原家
 目录重命名 -l 新的名字  
-usermod -a -G newgroup  user :给 user 用户附加一个 newgroup  
+usermod -a -G newgroup  user :给 user 用户附加一个 newgroup
 newgrp newgroup :临时改变组  
 **** 删除用户
 deluser --remove-home user  :删 user 用户同时删除家目录  
@@ -254,9 +254,9 @@ for (( ;; )) :表示死循环
 #+BEGIN_SRC  sh 
   #!/bin/bash 
 
-  echo " please input sutudents grade"
+  echo " please input students grade"
   read a
-  if [ $a -gt 100 ]
+  if [ $a -gt 100 ]i
   then
       echo "grade is a invalid number"
       exit
@@ -286,9 +286,6 @@ for (( ;; )) :表示死循环
 
 #+END_SRC
 
-
- 
-
 **** case 语句实现
 #+BEGIN_SRC  sh 
 
@@ -310,7 +307,7 @@ for (( ;; )) :表示死循环
       5|4|3|2|1|0)
           echo "D"
           ;;
-      ,*)
+      *)
           echo "grade is a invalid number"
           ;;  
   esac
@@ -734,7 +731,6 @@ static 修饰全局变量：该变量只能当前文件访问。
 #+BEGIN_SRC C
   # include <stdio.h>
   # include <string.h>
-
   #define N 100
   int main(int argc, const char *argv[])
   {
@@ -781,11 +777,10 @@ static 修饰全局变量：该变量只能当前文件访问。
 *** 指针三
 #+BEGIN_SRC C
   #include <stdio.h>
-
   int main(int argc, const char *  argv[])
   {
     int m = 10;
-    
+
     int * p;
     int ** q;
     int *** r;
@@ -794,21 +789,34 @@ static 修饰全局变量：该变量只能当前文件访问。
     q = &p;
     r = &q;
 
-    printf("%d %d %d %d\n",m, *p, **q, ***r);
+   // printf("%d %d %d %d\n",m, *p, **q, ***r);
 
     char * s[3] = {"beijing", "shenzhen", "shanghai"};
     char ** sp;
 
     sp = s;//s[0]+1
-    sp = &s[0];
-
-    int i = 0;
+    //sp = &s[0];
+    int a[][10]={{1,2,3,4,5,6,7,8,9,0},{11,12,13,14,15,16,17,18,19,20}};
+    int i = 0,(*pp)[10];
     while (i < sizeof(s)/sizeof(char *)) {
 
-      printf("%s, %s\n", s[i], *(sp+i));
+      printf("%s, %s,%s,%s\n", s[i], *(sp+i),sp[i],*(s+i));
+
       i++;
     }
-    
+
+
+      printf("%c, %c,%c,%c,%c,%c\n", s[0][1], *(*s+1),sp[0][1],*(*sp+1),*(s[0]+1),*s[1]);
+      printf("%c, %c,%c,%c,%c,%c\n", s[1][1], *(*(s+1)+1),sp[1][1],*(*(sp+1)+1),*(s[1]+1),*s[1]);
+
+       //s++;
+      //s[0]++;
+      //sp++;
+      //sp[0]++;
+      //a++;
+      pp = a;
+      pp+=1;
+      printf("%d   \n",**pp);
 
 
 
@@ -818,10 +826,12 @@ static 修饰全局变量：该变量只能当前文件访问。
 #+END_SRC
 
 #+RESULTS:
-| 10 10 10 10 |          |
-| beijing     | beijing  |
-| shenzhen    | shenzhen |
-| shanghai    | shanghai |
+| beijing,  | beijing,beijing,beijing    |
+| shenzhen, | shenzhen,shenzhen,shenzhen |
+| shanghai, | shanghai,shanghai,shanghai |
+| e,        | e,e,e,e,s                  |
+| h,        | h,h,h,h,s                  |
+| 11        |                            |
 
 *** union
 #+BEGIN_SRC C
