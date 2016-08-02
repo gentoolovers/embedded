@@ -1,0 +1,8 @@
+Fail to open test.txt : Permission denied
+open success !
+open success !
+open success !
+Fail to open test.txt : Permission denied
+Fail to open test.txt : Permission denied
+Fail to open test.txt : Permission denied
+open success !
