@@ -457,7 +457,6 @@ pid_t fork(void)
 回答:waitpid(-1,&status,0);
 * 第四天<2016-08-01 Mon>
 ** 进程结束
-
 (1)_exit()
 在任何地方调用，都是结束一个进程，它是系统调用接口
 
@@ -530,7 +529,6 @@ char *envp[] = {"环境变量名1=内容1:内容2",...,NULL};
 练习:
     写日志时间的守护进程(每隔1秒，将系统的时间写入一个指定的文件)
 
-
 ** Linux 下多线程编程
 
 1.线程概念
@@ -593,3 +591,212 @@ int main()
 }
 
 互斥锁
+* 第五天<2016-08-02 Tue>
+** 多线程共享资源访问
+
+原则:如果多个线程同时对共享资源操作，会有问题，就必须保证一个线程在访问共享资源的时候，其他线程不能
+访问，保证访问的完整性。
+
+
+*** 互斥锁
+
+互斥：有你没我
+
+(1)定义互斥锁
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;//静态初始化
+int pthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr);//动态初始化
+
+
+(2)获得互斥锁
+
+int pthread_mutex_lock(pthread_mutex_t *mutex);
+功能:获得互斥锁，如果无法获得互斥锁，则阻塞
+
+int pthread_mutex_trylock(pthread_mutex_t *mutex);
+功能:获得互斥锁，如果无法获得互斥锁，则不阻塞，立即返回
+
+
+(3)释放互斥锁
+
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
+
+注意:
+当一个线程把锁释放的时候，并不表示另一个线程一定会立即获得锁，也有可能当前线程再次获得锁
+
+*** 线程间同步
+
+信号量 : 表示一类资源，信号量的值表示资源个数
+
+(1)定义信号量
+  sem_t sem;
+
+(2)初始化信号量
+  int sem_init(sem_t *sem, int pshared, unsigned int value);
+  参数:
+  @sem       信号量
+  @pshared   0:线程间使用  非0:进程间使用
+  @value     信号量的值
+  返回值:
+  成功返回0,失败返回-1
+
+(3)P操作 , V操作
+
+  P操作:申请资源
+  V操作:释放资源
+
+  信号量P操作
+  int sem_wait(sem_t *sem);
+
+  信号量V操作
+  int sem_post(sem_t *sem);
+
+
+*** 条件变量
+
+(1)定义条件变量
+
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int pthread_cond_init(pthread_cond_t *restrict cond,const pthread_condattr_t *restrict attr);
+
+(2)等待条件满足
+
+int pthread_cond_wait(pthread_cond_t *restrict cond,pthread_mutex_t *restrict mutex);
+工作原理:
+如果条件不满足，则阻塞调用者(在阻塞之前，会将互斥锁释放)
+如果条件满足，就会返回(在返回之前，需要获得互斥锁)
+
+
+问题:什么时候条件满足
+回答:其他线程调用了pthread_cond_signal或者pthread_cond_broadcast函数
+
+(3)唤醒等待的线程
+
+int pthread_cond_broadcast(pthread_cond_t *cond);//唤醒所有等待的条件的线程
+int pthread_cond_signal(pthread_cond_t *cond);//唤醒第一个等待条件的线程
+
+注意:
+在唤醒A线程的时候，A线程必须在等待态
+
+**  进程间通信
+
+1.传统进程间通信
+  无名管道,有名管道，信号
+
+2.IPC 对象
+  消息队列，共享内存，信号灯集
+
+3.给予Socket字
+
+4.Android 系统提供Binder机制
+
+** 传统进程间通信方式
+*** 无名管道
+int pipe(int pipefd[2]);
+参数:
+@pipefd 获得操作管道的文件描述符
+返回值:
+成功返回0，失败返回-1
+
+特点:
+(1)pipefd[0] : 读管道,pipefd[1] : 写管道
+(2)半双工工作方式
+(3)只能由于具有亲缘关系的进程间通信
+(4)管道中的数据，读出来就没有了
+
+--------------------------------------------------------------------------------------------------------
+管道读写规则:
+(1)读端存在,写管道
+  如果没有满,则写管道成功，如果管道已经满，则写管道阻塞
+
+(2)读端不存在,写管道
+  此时写管道没有意义，操作系统直接发送SIGPIPE信号，杀死写管道的进程
+
+(3)写端存在，读管道
+  如果管道中有数据，则读取数据，如果管道中没有数据，读管道会阻塞
+
+(4)写端不存在,读管道
+  如果管道中有数据，则读取数据，如果管道中没有数据，此时读管道不阻塞，立即返回0
+---------------------------------------------------------------------------------------------------------
+练习:
+父进程向管道中输入数据，子进程从管道中读取数据，如果输入"quit",父子进程结束
+
+*** 有名管道
+特点:
+它在文件系统中存在一个文件和有名管道对应，可以用于任意的进程间通信
+
+**** 创建有名管道文件
+
+int mkfifo(const char *pathname, mode_t mode);
+@pathname 管道文件名
+@mode     指定文件的权限
+返回值:
+成功返回0，失败返回-1
+
+
+**** 打开文件
+open
+
+如果一端以只读方式打开有名管道文件，此时会阻塞，直到另一端以写方式的打开
+如果一端以只写方式打开有名管道文件，此时会阻塞，直到另一端以读方式的打开
+
+注意:读和写打开要同时进行
+
+(3)读写
+read / write
+
+(4)关闭
+close
+* 第六天<2016-08-03 Wed>
+** 信号
+*** 进程对信号的处理方式
+
+(1)忽略
+(2)捕捉
+   当进程收到一个信号后，就去执行信号处理函数
+
+(3)默认方式处理
+   大部分信号对进程的默认处理方式都是杀死进程
+
+   SIGKILL,SIGSTOP 不能捕捉，也不能忽略
+   SIGCHLD  子进程状态发生改变，父进程就会收到这个信号，默认处理是忽略
+*** 设置进程对信号处理方式
+
+int a;                      int
+int *p;                     int *
+int array[5];               int [5]
+int (*pfun)(int ,int )      int (*)(int ,int )
+
+typedef 就是给已有类型取别名，别名的位置就是变量的位置
+
+typedef void (*sighandler_t)(int);
+
+sighandler_t signal(int signum, sighandler_t handler);
+
+sighandler_t signal(int signum, void (*handler)(int ));
+
+void (*)(int) signal(int signum,void (*handler)(int )); (错误)
+
+void (*signal(int signum,void (*handler)(int)))(int);
+
+---------------------------------------------------------------------------------------------
+sighandler_t signal(int signum, sighandler_t handler);
+功能:设置进程对信号的处理方式
+参数:
+@signum   信号的编号
+@handler  SIG_IGN:忽略  SIG_DFL:默认处理  一个函数的入口地址:捕捉
+返回值:
+成功返回handler,失败返回SIG_ERR (-1)
+
+练习:
+回收僵尸态子进程，父进程不轮询，不阻塞方式回收
+
+*** 给进程发信号
+int kill(pid_t pid, int sig);
+
+4.进程等待
+int pause();
+
+5.设置定时器
+unsigned int alarm(unsigned int seconds);
+当时间减到的0的时候，操作系统会给发送SIGALRM信号

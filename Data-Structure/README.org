@@ -332,9 +332,7 @@
     return 0;
   }
 
-
 #+END_SRC
-
 **** 主函数
 #+BEGIN_SRC  C :main no
   #include <stdio.h>
@@ -1070,6 +1068,7 @@
        }
      return ret;
    }
+
    DLinkListNode* DLinkList_pre(DLinkList* list)
    {
 
@@ -2476,10 +2475,6 @@
 
       TLNode* trNode=(TLNode*)LinkList_Get_ByPos(tree,pos);
   }
-
-
-
-
 #+END_SRC
 *** 二叉树
 **** 头文件

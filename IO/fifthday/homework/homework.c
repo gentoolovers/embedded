@@ -1,0 +1,141 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+typedef struct _tag_filename
+{
+    char* fifo;
+    char* src_file;
+    char* dest_file;
+}file_struct;
+
+void* thread_read_pipe(void* arg)
+{
+    int ret_read,ret_write;
+    int fd_fifo,fd_dest_file;
+
+    char buf[4096];
+
+    file_struct* file_st_1=(file_struct*)arg;
+    fd_fifo = open(file_st_1->fifo,O_RDONLY);
+    if((0 > fd_fifo) && (errno != EEXIST))
+    {
+        fprintf(stderr,"Fail to open %s:%s",file_st_1->fifo,strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    fd_dest_file = open(file_st_1->dest_file,O_WRONLY|O_CREAT|O_TRUNC,0666);
+    if(0 > fd_dest_file)
+    {
+        fprintf(stderr,"Fail to open %s:%s",file_st_1->dest_file,strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    while(1)
+    {
+        ret_read = read(fd_fifo, buf,sizeof(buf));
+        if(0 >= ret_read)
+        {
+            break;
+        }
+        ret_write = write(fd_dest_file, buf,ret_read);
+        if(0 >= ret_write)
+        {
+            break;
+        }
+
+
+    }
+    close(fd_fifo);
+    close(fd_dest_file);
+    return NULL;
+
+}
+void* thread_write_pipe(void* arg)
+{
+    int ret_read,ret_write;
+    int fd_fifo,fd_src_file;
+
+    char buf[4096];
+
+    file_struct* file_st_2=(file_struct*)arg;
+    fd_fifo = open(file_st_2->fifo,O_WRONLY);
+    if((0 > fd_fifo) && ( errno != EEXIST))
+        {
+            fprintf(stderr,"Fail to open %s:%s",file_st_2->fifo,strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        fd_src_file = open(file_st_2->src_file,O_RDONLY);
+        if(0 > fd_src_file)
+        {
+            fprintf(stderr,"Fail to open %s:%s",file_st_2->src_file,strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
+    while(1)
+    {
+        ret_read=read(fd_src_file, buf,sizeof(buf));
+        if(0 >= ret_read)
+        {
+            break;
+        }
+
+        ret_write = write(fd_fifo, buf,ret_read);
+        if(0 >= ret_write)
+        {
+            break;
+        }
+    }
+    close(fd_fifo);
+    close(fd_src_file);
+    return NULL;
+}
+int main(int argc,const char* argv[])
+{
+    int ret,ret_pthread_1,ret_pthread_2;
+    pthread_t tid_1,tid_2;
+    if(argc <3 )
+    {
+        printf("Usage:%s <src file>  <dest file>",argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    ret = mkfifo("fifo",0666);
+    if(0 > ret && errno != EEXIST)
+    {
+        fprintf(stderr,"Fail to mkfifo fifo file :%s",strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    file_struct file_st;
+
+    file_st.fifo="fifo";
+    file_st.src_file=(char*)argv[1];
+    file_st.dest_file=(char*)argv[2];
+
+
+
+    ret_pthread_1=pthread_create(&tid_1,NULL,thread_read_pipe,&file_st);
+    if(ret_pthread_1 != 0)
+    {
+        fprintf(stderr,"Fail to pthread_create %s",strerror(ret_pthread_1));
+        exit(EXIT_FAILURE);
+    }
+
+
+    ret_pthread_2=pthread_create(&tid_2,NULL,thread_write_pipe,&file_st);
+    if(ret_pthread_2 != 0)
+    {
+        fprintf(stderr,"Fail to pthread_create %s",strerror(ret_pthread_2));
+        exit(EXIT_FAILURE);
+    }
+    pthread_join(tid_1,NULL);
+    pthread_join(tid_2,NULL);
+    remove("fifo");
+
+    return 0;
+}

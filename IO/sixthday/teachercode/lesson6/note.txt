@@ -1,0 +1,55 @@
+一 信号 
+
+1.进程对信号的处理方式
+
+(1)忽略
+(2)捕捉
+   当进程收到一个信号后，就去执行信号处理函数
+
+(3)默认方式处理
+   大部分信号对进程的默认处理方式都是杀死进程
+   
+   SIGKILL,SIGSTOP 不能捕捉，也不能忽略 
+   SIGCHLD  子进程状态发生改变，父进程就会收到这个信号，默认处理是忽略
+
+2.设置进程对信号处理方式
+
+int a;                      int 
+int *p;                     int *
+int array[5];               int [5]
+int (*pfun)(int ,int )      int (*)(int ,int )
+
+typedef 就是给已有类型取别名，别名的位置就是变量的位置
+
+typedef void (*sighandler_t)(int);
+
+sighandler_t signal(int signum, sighandler_t handler);
+
+sighandler_t signal(int signum, void (*handler)(int ));
+
+void (*)(int) signal(int signum,void (*handler)(int )); (错误)
+
+void (*signal(int signum,void (*handler)(int)))(int);
+
+---------------------------------------------------------------------------------------------
+sighandler_t signal(int signum, sighandler_t handler);
+功能:设置进程对信号的处理方式
+参数:
+@signum   信号的编号 
+@handler  SIG_IGN:忽略  SIG_DFL:默认处理  一个函数的入口地址:捕捉 
+返回值:
+成功返回handler,失败返回SIG_ERR (-1)
+
+练习:
+回收僵尸态子进程，父进程不轮询，不阻塞方式回收
+
+3.给进程发信号
+int kill(pid_t pid, int sig);
+
+4.进程等待
+int pause();
+
+5.设置定时器 
+unsigned int alarm(unsigned int seconds);
+当时间减到的0的时候，操作系统会给发送SIGALRM信号
+
