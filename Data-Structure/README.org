@@ -2431,7 +2431,8 @@ DLinkList 定义为 void 比较安全.
   6.然后然树节点指向cNode
   7.让孩子节点指向cnode
   8.调用链表插入函数,把trNode插入组织链表
-  9.然后调用函数得到父亲节点,因为我需要将节点的parent指针指向Pnode,假如PNode不为空,我们将cNode的parent 指针指向PNode
+  9.然后调用函数得到父亲节点,因为我需要将节点的parent指针指向Pnode,假如PNode不为空,
+我们将cNode的parent 指针指向PNode
   10.然后我们调用插入函数,将cldNode节点插入PNode的child链表.
   11.假如PNode为空,则释放所有申请的空间
 
