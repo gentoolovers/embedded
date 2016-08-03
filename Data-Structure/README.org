@@ -2463,7 +2463,8 @@ DLinkList 定义为 void 比较安全.
               {
 
                   cNode->parent=pNode->node;
-                  LinkList_Insert(pNode->node->child,(LinkListNode*)cldNode,LinkList_Length(pNode->node->child));
+                  LinkList_Insert(pNode->node->child,(LinkListNode*)cldNode,
+LinkList_Length(pNode->node->child));
               }
           }else
           {
