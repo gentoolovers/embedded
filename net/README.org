@@ -1,0 +1,527 @@
+* 第一天
+【1】TCP协议
+     TCP/IP协议
+     传输控制/网际协议(Transfer Control Protocol/Internet Protocol) 又称作网络通讯协议
+     四无原则：数据无错误，数据无丢失，数据无失序，数据无重复到达。
+
+【2】
+    Socket
+         是一个编程接口
+         是一种特殊的文件描述符 (everything in Unix is a file)
+         并不仅限于TCP/IP协议
+         面向连接 (Transmission Control Protocol - TCP/IP)
+         无连接 (User Datagram Protocol -UDP 和 Inter-network Packet Exchange - IPX)
+
+    IP地址
+        IP地址是Internet中主机的标识
+
+    端口号
+        为了区分一台主机接收到的数据包应该转交给哪个进程来进行处理，使用端口号来区别
+
+        TCP端口号与UDP端口号独立
+
+        /etc/services
+       端口号一般由IANA (Internet Assigned Numbers Authority) 管理
+       众所周知端口：1~1023（1~255之间为众所周知端口，256~1023端口通常由UNIX系统占用）
+       已登记端口：1024~49151
+       动态或私有端口：49152~65535
+
+
+    字节序
+       0x12345678
+       网络字节序。（网络字节序属于大端字节序）
+
+【3】API
+     TCP服务器流程：
+     1-- 创建一个网络套接字
+         int socket(int domain, int type, int protocol);
+         功能：创建一个网络套接字
+         参数： domain   AF_UNIX, AF_LOCAL   本地通信
+                         AF_INET   网络通信
+
+                type     SOCK_STREAM   tcp 通信
+                         SOCK_DGRAM    udp 通信
+                         SOCK_RAW      原始套接字
+                protocol 0
+         返回值：成功 网络套接字
+                 失败 -1
+
+    2-- 网络信息结构体的填充
+        struct sockaddr {
+               sa_family_t sa_family;
+               char        sa_data[14];
+        }
+
+       ******************************************************
+        /* Structure describing an Internet socket address.  */
+225    struct sockaddr_in
+226    {
+227     __SOCKADDR_COMMON (sin_);
+228     in_port_t sin_port;         /* Port number.  */  端口号
+229     struct in_addr sin_addr;        /* Internet address.  */ ip地址
+230
+231     /* Pad to size of `struct sockaddr'.  */
+232     unsigned char sin_zero[sizeof (struct sockaddr) -
+233                __SOCKADDR_COMMON_SIZE -
+234                sizeof (in_port_t) -
+235                sizeof (struct in_addr)];  // 使两个结构体大小保持一致。
+236     };
+
+      ******************************************************
+        #define __SOCKADDR_COMMON(sa_prefix) \
+                     sa_family_t sa_prefix##family
+       ## 在宏函数中代表的是字符串的拼接
+       typedef unsigned short int sa_family_t;
+
+       sa_family_t  sin_family;   ===> unsigned short int  sin_family;
+
+       typedef uint16_t in_port_t;  ===>  unsigned short int in_port_t;
+
+
+      *****************************************************************
+      /* Internet address.  */
+     typedef uint32_t in_addr_t;
+     struct in_addr
+     {
+       in_addr_t s_addr;
+     };
+
+    *******************************************************************
+     unsigned char sin_zero[8]; //
+
+
+    3-- 绑定 网络套接字 与 网络信息结构体
+        int bind(int sockfd, const struct sockaddr *addr,
+                socklen_t addrlen);
+        功能：绑定一个套接字
+        参数：sockfd  网络套接字
+              addr    网络信息结构体
+              addrlen 结构体大小
+        返回值：成功 0，出错 -1
+
+    4-- 地址转换函数
+        in_addr_t inet_addr(const char *cp);
+        功能：将点分十进制ip字符串转换为 二进制的网络字节序数据
+
+        char *inet_ntoa(struct in_addr in);
+        功能：将十进制的ip地址转换为点分十进制的字符串
+
+        uint16_t htons(uint16_t hostshort);
+        功能：将主机字节序转换为网络字节序
+
+   5--
+       int listen(int sockfd, int backlog);
+       功能：将套接字置为被动监听模式
+       参数：sockfd   网络套接字
+             backlog  监听队列数
+       返回值：成功 0， 出错 -1
+
+   6-- 接收客户端连接请求
+        int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+        功能：接收客户端的连接请求，返回与相应客户端进行通信的文件描述符
+        参数：sockfd  网络套接字
+              addr    客户端的网络信息结构体
+              addrlen 结构体大小
+        返回值：成功 新的文件描述符
+                出错 -1
+
+  7-- 发送连接请求
+        int connect(int sockfd, const struct sockaddr *addr,
+                   socklen_t addrlen);
+        功能：发送请求
+        参数：sockfd  网络套接字
+              addr    服务器地址
+              addrlen 大小
+        返回值：成功 0
+                出错 -1
+
+  8-- 发送函数
+      ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+      功能：发送消息
+      参数：sockfd  网络套接字
+            buf     发送缓存区的首地址
+            len     消息大小
+            flags   0 阻塞
+      返回值：成功 实际发送的字节数
+              失败 -1
+
+      ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+      功能：接收消息
+      参数：sockfd  网络套接字
+            buf     接收缓存区的首地址
+            len     消息大小
+            flags   0 阻塞
+      返回值：成功 实际接收的字节数
+                   如果对方套接字关闭，接收数据为0
+              失败 -1
+
+作业：tftp 文件服务器
+
+* 第二天
+【1】tcp数据粘包问题
+     1-- 制作出粘包现象？
+     2-- 解决粘包问题 ？
+
+【2】客户端，长时间不在线情况。
+     服务器最多等待客户端20s，如果20s客户没有发送数据报，服务器应该将
+     客户端关闭掉。
+     正常情况下，客户端，应该每隔5秒钟，向服务器发送一帧数据，证明我还活着。
+
+【3】网络工具
+     telnet  serverip  port  // 客户端连接服务器
+     telnet 192.168.5.196 10000
+
+【4】udp 编程
+     udp服务器：
+
+     socket();
+        |
+       \ /
+     网络信息结构体填充
+        |
+       \ /
+     bind();
+        |
+       \ /
+     recvfrom();
+        |
+       \ /
+     sendto();
+
+     udp客户端：
+      socket();
+        |
+       \ /
+     网络信息结构体填充
+        |
+       \ /
+     sendto();
+        |
+       \ /
+     recvfrom();
+
+【5】函数接口
+     ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+                        struct sockaddr *src_addr, socklen_t *addrlen);
+
+     功能：接收消息
+     参数：sockfd  网络套接字
+           buf     接收缓存区的首地址
+           len     缓存区大小
+           flags   0  阻塞
+           src_addr 源的网络信息结构体（发送者的信息结构体）
+           addrlen 网络的结构体大小
+     返回值：成功 接收到字节的数
+                  当对方关闭，返回值为0
+             出错 -1
+
+      ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+                      const struct sockaddr *dest_addr, socklen_t addrlen);
+     功能：发送消息
+     参数：sockfd  网络套接字
+           buf     发送缓存区的首地址
+           len     缓存区大小
+           flags   0  阻塞
+           dest_addr 目的的网络信息结构体（接收者的信息结构体）
+           addrlen 网络的结构体大小
+     返回值：成功 实际发送的字节数
+                  当对方关闭，返回值为0
+             出错 -1
+
+【6】IO模型
+     1-- 阻塞式IO
+         最常用，最简单，效率低。进程阻塞在函数上。
+         读阻塞：read，fgets，getchar,accept
+         写阻塞：write
+
+     2-- 非阻塞式IO
+         效率高，不常用。
+
+         一种打开文件时设置标志位：
+              fd = open（pathname,   O_RDONLY|O_NONBLOCK）；
+
+         二种进程运行过程之中修改标志位：
+                #include <unistd.h>
+                #include <fcntl.h>
+
+                int fcntl(int fd, int cmd, ... /* arg */ );
+                功能：对文件属性进行获取或者设置
+                参数：fd   文件描述符
+                      cmd  F_GETFL
+                           F_SETFL
+                      arg  它是否存在取决于cmd指令
+                返回值：成功 得到一些属性信息
+                             0
+                        出错 -1
+
+                对位操作，寄存器操作，遵循 读--改--写
+
+                int flags;
+
+                flags = fcntl(fd, F_GETFL); // 读
+                flags |= O_NONBLOCK;  // 改
+                fcntl(fd, F_SETFL, flags); // 写
+
+* 第三天
+【1】在UNIX/Linux下主要有4种I/O 模型：
+   阻塞I/O：
+     最常用、最简单、效率最低
+
+   非阻塞I/O：
+     可防止进程阻塞在I/O操作上，需要轮询
+
+   I/O 多路复用：
+     允许同时对多个I/O进行控制
+
+   信号驱动I/O:
+     一种异步通信模型
+
+
+【2】多路IO复用
+     其基本思想是：
+      先构造一张有关描述符的表，然后调用一个函数。
+      当这些文件描述符中的一个或多个已准备好进行I/O时函数才返回。
+      函数返回时告诉进程那个描述符已就绪，可以进行I/O操作
+
+     函数接口：
+       #include <sys/time.h>
+       #include <sys/types.h>
+       #include <unistd.h>
+
+       int select(int nfds, fd_set *readfds, fd_set *writefds,
+                  fd_set *exceptfds, struct timeval *timeout);
+       功能：允许进程监听多个文件描述符集合，它一直阻塞等待，
+             直到集合中有一个或者多个文件描述符准备就绪，那么函数会立刻返回。
+       参数：nfds  最大文件描述加1
+             readfds  读文件描述资源
+             writefds 写资源
+             exceptfds 异常
+             timeout   NULL 一直阻塞
+       返回值：成功 已经准备就绪的文件描述符个数
+               出错 -1
+
+       注意点：select 函数执行完毕之后， 会清除掉集合中，没有准备就绪的文件描述符。
+
+       void FD_CLR(int fd, fd_set *set);
+       功能：将fd从集合中清除掉
+
+       int  FD_ISSET(int fd, fd_set *set);
+       功能：判断fd是否在集合中
+
+       void FD_SET(int fd, fd_set *set);
+       功能：将fd添加到集合中
+
+       void FD_ZERO(fd_set *set);
+       功能：将集合清空
+
+**************************************************************************
+    #define FD_SET(fd, fdsetp)  __FD_SET (fd, fdsetp)
+
+
+     #define __FD_SET(d, set) \
+      ((void) (__FDS_BITS (set)[__FD_ELT (d)] |= __FD_MASK (d)))
+
+       long int __fds_bits[__FD_ELT(d)] |= __FD_MASK（d）
+
+       #define __FD_MASK(d)    ((long int) 1 << ((d) % 32))
+       #define __FD_ELT(d) ((d) / __NFDBITS)   d/32
+
+
+***************************************************************************
+    typedef struct
+     {
+       __fd_mask __fds_bits[__FD_SETSIZE / __NFDBITS];
+       # define __FDS_BITS(set) ((set)->__fds_bits)
+
+    } fd_set;   // 代表的是文件描述符的集合
+
+   typedef long int __fd_mask;
+
+   #define __FD_SETSIZE        1024
+   #define __NFDBITS   (8 * (int) sizeof (__fd_mask))
+
+
+    typedef struct {
+       long int __fds_bits[1024/32]; ---> long int __fds_bits[32];
+  }fd_set;
+
+【3】服务器模型
+     1-- 循环服务器
+          tcp 循环服务器
+          udp 循环服务器（支持并发）
+
+     2-- 并发服务器
+         tcp 并发服务器
+
+         第一种：
+              父子进程实现并发。
+
+         第二种：
+              IO多路复用实现并发服务器
+
+
+【4】作业
+     select + 线程
+
+     poll  实现并发服务器
+     #include <poll.h>
+
+     int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+
+* udp
+** server
+#+BEGIN_SRC C :main no :tangle udp-server.c
+  #include <stdio.h>
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <arpa/inet.h>
+  #include <stdlib.h>
+  #include <unistd.h>
+  #include <string.h>
+  #include <sys/types.h>
+
+  #define err_log(errlog) do{perror(errlog); exit(1);}while(0)
+
+  // ./server  192.168.2.196 10000
+
+  #define  N  4096
+
+  int main(int argc, const char *argv[])
+  {
+
+      int sockfd;
+      int acceptfd;
+      char ret_recv;
+      struct sockaddr_in serveraddr, clientaddr;
+      char buf[N] = {};
+
+      if(argc < 3)
+      {
+          fprintf(stderr, "Usage:%s serverip port.", argv[0]);
+          return -1;
+      }
+
+      if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+      {
+          err_log("fail to socket");
+      }
+
+      printf("sockfd = %d\n", sockfd);
+
+      serveraddr.sin_family = AF_INET;
+      serveraddr.sin_addr.s_addr = inet_addr(argv[1]);
+      serveraddr.sin_port = htons(atoi(argv[2]));
+
+      if(bind(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
+      {
+          err_log("fail to bind");
+      }
+
+
+      printf("%s --> %d\n", inet_ntoa(clientaddr.sin_addr), ntohs(clientaddr.sin_port));
+
+      socklen_t addrlen=sizeof(struct sockaddr);
+      while(1)
+      {
+          ret_recv = recvfrom(sockfd, buf, strlen(buf), 0,(struct sockaddr*)&clientaddr, &addrlen);
+          if(ret_recv <0)
+          {
+              err_log("fail to recv");
+          }
+          printf("server:%s\n",buf);
+          if(strncmp(buf,"quit",4) == 0)
+          {
+              break;
+          }
+          strcat(buf,"hello ");
+          if(sendto(sockfd, buf, strlen(buf),0, (struct sockaddr*)&clientaddr,addrlen) < 0 )
+          {
+              err_log("fail to send");
+          }
+
+
+      }
+
+
+      close(sockfd);
+
+      return 0;
+  }
+
+
+#+END_SRC
+
+#+RESULTS:
+
+** client
+#+BEGIN_SRC C :main no :tangle udp-client.c
+  #include <stdio.h>
+  #include <sys/socket.h>
+  #include <sys/types.h>
+  #include <netinet/in.h>
+  #include <arpa/inet.h>
+  #include <stdlib.h>
+  #include <unistd.h>
+  #include <string.h>
+
+  #define err_log(errlog) do{perror(errlog); exit(1);}while(0)
+
+  // ./server  192.168.2.196 10000
+
+  #define  N  4096
+
+  int main(int argc, const char *argv[])
+  {
+
+      int sockfd;
+      int acceptfd;
+      int ret_recv;
+      struct sockaddr_in serveraddr, clientaddr;
+      char buf[N] = {};
+
+      if(argc < 3)
+      {
+          fprintf(stderr, "Usage:%s serverip port.", argv[0]);
+          return -1;
+      }
+
+      if((sockfd = socket(AF_INET,  SOCK_DGRAM, 0)) < 0)
+      {
+          err_log("fail to socket");
+      }
+
+      printf("sockfd = %d\n", sockfd);
+
+      serveraddr.sin_family = AF_INET;
+      serveraddr.sin_addr.s_addr = inet_addr(argv[1]);
+      serveraddr.sin_port = htons(atoi(argv[2]));
+
+      socklen_t addrlen=sizeof(struct sockaddr);
+
+      while(1)
+      {
+          printf("<client>");
+          fgets(buf, N, stdin);
+
+          buf[strlen(buf)-1] = '\0';
+          sendto(sockfd, buf, strlen(buf),0,(struct sockaddr* )&serveraddr,addrlen);
+
+          if(strncmp(buf, "quit", 4) == 0)
+
+              break;
+
+          ret_recv = recvfrom(sockfd, buf-1, strlen(buf), 0,(struct sockaddr*)&serveraddr, &addrlen);
+          if(ret_recv <0)
+          {
+              err_log("fail to recv");
+          }
+
+          printf("%s\n", buf);
+      }
+
+      close(sockfd);
+
+      return 0;
+  }
+
+#+END_SRC

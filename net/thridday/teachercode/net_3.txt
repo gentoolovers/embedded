@@ -1,0 +1,116 @@
+【1】在UNIX/Linux下主要有4种I/O 模型：
+   阻塞I/O：
+     最常用、最简单、效率最低
+
+   非阻塞I/O：
+     可防止进程阻塞在I/O操作上，需要轮询
+
+   I/O 多路复用：
+     允许同时对多个I/O进行控制
+
+   信号驱动I/O:
+     一种异步通信模型
+
+
+【2】多路IO复用
+     其基本思想是：
+      先构造一张有关描述符的表，然后调用一个函数。
+      当这些文件描述符中的一个或多个已准备好进行I/O时函数才返回。
+      函数返回时告诉进程那个描述符已就绪，可以进行I/O操作
+
+     函数接口：
+       #include <sys/time.h>
+       #include <sys/types.h>
+       #include <unistd.h>
+
+       int select(int nfds, fd_set *readfds, fd_set *writefds,
+                  fd_set *exceptfds, struct timeval *timeout);
+       功能：允许进程监听多个文件描述符集合，它一直阻塞等待，
+             直到集合中有一个或者多个文件描述符准备就绪，那么函数会立刻返回。
+       参数：nfds  最大文件描述加1
+             readfds  读文件描述资源
+             writefds 写资源
+             exceptfds 异常
+             timeout   NULL 一直阻塞
+       返回值：成功 已经准备就绪的文件描述符个数
+               出错 -1
+
+       注意点：select 函数执行完毕之后， 会清除掉集合中，没有准备就绪的文件描述符。
+
+       void FD_CLR(int fd, fd_set *set);
+       功能：将fd从集合中清除掉
+
+       int  FD_ISSET(int fd, fd_set *set);
+       功能：判断fd是否在集合中
+
+       void FD_SET(int fd, fd_set *set);
+       功能：将fd添加到集合中
+
+       void FD_ZERO(fd_set *set);
+       功能：将集合清空
+
+**************************************************************************
+    #define FD_SET(fd, fdsetp)  __FD_SET (fd, fdsetp)
+
+
+     #define __FD_SET(d, set) \                                                  
+      ((void) (__FDS_BITS (set)[__FD_ELT (d)] |= __FD_MASK (d)))
+
+       long int __fds_bits[__FD_ELT(d)] |= __FD_MASK（d）
+
+       #define __FD_MASK(d)    ((long int) 1 << ((d) % 32))
+       #define __FD_ELT(d) ((d) / __NFDBITS)   d/32
+
+
+***************************************************************************
+    typedef struct
+     {
+       __fd_mask __fds_bits[__FD_SETSIZE / __NFDBITS];
+       # define __FDS_BITS(set) ((set)->__fds_bits)
+
+    } fd_set;   // 代表的是文件描述符的集合    
+
+   typedef long int __fd_mask;
+
+   #define __FD_SETSIZE        1024 
+   #define __NFDBITS   (8 * (int) sizeof (__fd_mask)) 
+
+
+    typedef struct {
+       long int __fds_bits[1024/32]; ---> long int __fds_bits[32];
+  }fd_set;
+
+【3】服务器模型
+     1-- 循环服务器
+          tcp 循环服务器
+          udp 循环服务器（支持并发）
+
+     2-- 并发服务器
+         tcp 并发服务器
+
+         第一种：
+              父子进程实现并发。
+
+         第二种：
+              IO多路复用实现并发服务器
+
+
+【4】作业
+     select + 线程
+
+     poll  实现并发服务器
+     #include <poll.h>
+
+     int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+
+     
+
+
+
+
+
+
+
+
+  
+

@@ -1,0 +1,162 @@
+【1】TCP协议
+     TCP/IP协议
+     传输控制/网际协议(Transfer Control Protocol/Internet Protocol) 又称作网络通讯协议
+     四无原则：数据无错误，数据无丢失，数据无失序，数据无重复到达。
+
+【2】
+    Socket
+         是一个编程接口
+         是一种特殊的文件描述符 (everything in Unix is a file)
+         并不仅限于TCP/IP协议
+         面向连接 (Transmission Control Protocol - TCP/IP)
+         无连接 (User Datagram Protocol -UDP 和 Inter-network Packet Exchange - IPX)
+
+    IP地址
+        IP地址是Internet中主机的标识
+
+    端口号
+        为了区分一台主机接收到的数据包应该转交给哪个进程来进行处理，使用端口号来区别
+
+        TCP端口号与UDP端口号独立
+
+        /etc/services
+       端口号一般由IANA (Internet Assigned Numbers Authority) 管理
+       众所周知端口：1~1023（1~255之间为众所周知端口，256~1023端口通常由UNIX系统占用）
+       已登记端口：1024~49151
+       动态或私有端口：49152~65535
+
+
+    字节序
+       0x12345678  
+       网络字节序。（网络字节序属于大端字节序）
+
+【3】API
+     TCP服务器流程：
+     1-- 创建一个网络套接字 
+         int socket(int domain, int type, int protocol);
+         功能：创建一个网络套接字
+         参数： domain   AF_UNIX, AF_LOCAL   本地通信
+                         AF_INET   网络通信
+
+                type     SOCK_STREAM   tcp 通信
+                         SOCK_DGRAM    udp 通信
+                         SOCK_RAW      原始套接字
+                protocol 0   
+         返回值：成功 网络套接字
+                 失败 -1 
+
+    2-- 网络信息结构体的填充
+        struct sockaddr {
+               sa_family_t sa_family;
+               char        sa_data[14];
+        }
+
+       ******************************************************
+        /* Structure describing an Internet socket address.  */
+225    struct sockaddr_in                                                                                                
+226    {
+227     __SOCKADDR_COMMON (sin_);
+228     in_port_t sin_port;         /* Port number.  */  端口号
+229     struct in_addr sin_addr;        /* Internet address.  */ ip地址
+230 
+231     /* Pad to size of `struct sockaddr'.  */
+232     unsigned char sin_zero[sizeof (struct sockaddr) -
+233                __SOCKADDR_COMMON_SIZE -
+234                sizeof (in_port_t) -
+235                sizeof (struct in_addr)];  // 使两个结构体大小保持一致。
+236     };
+
+      ******************************************************
+        #define __SOCKADDR_COMMON(sa_prefix) \                                                                            
+                     sa_family_t sa_prefix##family
+       ## 在宏函数中代表的是字符串的拼接
+       typedef unsigned short int sa_family_t;
+     
+       sa_family_t  sin_family;   ===> unsigned short int  sin_family;
+       
+       typedef uint16_t in_port_t;  ===>  unsigned short int in_port_t;
+
+
+      *****************************************************************
+      /* Internet address.  */                                                                                          
+     typedef uint32_t in_addr_t;
+     struct in_addr
+     {
+       in_addr_t s_addr;
+     };
+
+    *******************************************************************
+     unsigned char sin_zero[8]; //
+
+
+    3-- 绑定 网络套接字 与 网络信息结构体
+        int bind(int sockfd, const struct sockaddr *addr,
+                socklen_t addrlen);
+        功能：绑定一个套接字
+        参数：sockfd  网络套接字
+              addr    网络信息结构体
+              addrlen 结构体大小
+        返回值：成功 0，出错 -1
+   
+    4-- 地址转换函数
+        in_addr_t inet_addr(const char *cp);
+        功能：将点分十进制ip字符串转换为 二进制的网络字节序数据
+
+        char *inet_ntoa(struct in_addr in);
+        功能：将十进制的ip地址转换为点分十进制的字符串
+   
+        uint16_t htons(uint16_t hostshort);
+        功能：将主机字节序转换为网络字节序
+
+   5-- 
+       int listen(int sockfd, int backlog);
+       功能：将套接字置为被动监听模式
+       参数：sockfd   网络套接字
+             backlog  监听队列数
+       返回值：成功 0， 出错 -1
+
+   6-- 接收客户端连接请求
+        int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+        功能：接收客户端的连接请求，返回与相应客户端进行通信的文件描述符
+        参数：sockfd  网络套接字
+              addr    客户端的网络信息结构体
+              addrlen 结构体大小
+        返回值：成功 新的文件描述符
+                出错 -1
+
+  7-- 发送连接请求
+        int connect(int sockfd, const struct sockaddr *addr,
+                   socklen_t addrlen);
+        功能：发送请求
+        参数：sockfd  网络套接字
+              addr    服务器地址
+              addrlen 大小
+        返回值：成功 0
+                出错 -1
+
+  8-- 发送函数
+      ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+      功能：发送消息
+      参数：sockfd  网络套接字
+            buf     发送缓存区的首地址
+            len     消息大小
+            flags   0 阻塞
+      返回值：成功 实际发送的字节数
+              失败 -1
+
+      ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+      功能：接收消息
+      参数：sockfd  网络套接字
+            buf     接收缓存区的首地址
+            len     消息大小
+            flags   0 阻塞
+      返回值：成功 实际接收的字节数
+                   如果对方套接字关闭，接收数据为0
+              失败 -1
+
+作业：tftp 文件服务器
+      
+
+
+
+

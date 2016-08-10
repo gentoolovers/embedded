@@ -1,0 +1,111 @@
+【1】tcp数据粘包问题
+     1-- 制作出粘包现象？
+     2-- 解决粘包问题 ？
+
+【2】客户端，长时间不在线情况。
+     服务器最多等待客户端20s，如果20s客户没有发送数据报，服务器应该将
+     客户端关闭掉。
+     正常情况下，客户端，应该每隔5秒钟，向服务器发送一帧数据，证明我还活着。
+
+【3】网络工具
+     telnet  serverip  port  // 客户端连接服务器
+     telnet 192.168.5.196 10000
+     
+【4】udp 编程
+     udp服务器：
+
+     socket();
+        |
+       \ /
+     网络信息结构体填充
+        |
+       \ /
+     bind();
+        |
+       \ /
+     recvfrom();
+        |
+       \ /
+     sendto();
+
+     udp客户端：
+      socket();
+        |
+       \ /
+     网络信息结构体填充
+        |
+       \ /
+     sendto(); 
+        |
+       \ /
+     recvfrom();
+
+【5】函数接口
+     ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+                        struct sockaddr *src_addr, socklen_t *addrlen);
+
+     功能：接收消息
+     参数：sockfd  网络套接字
+           buf     接收缓存区的首地址
+           len     缓存区大小
+           flags   0  阻塞
+           src_addr 源的网络信息结构体（发送者的信息结构体）
+           addrlen 网络的结构体大小
+     返回值：成功 接收到字节的数
+                  当对方关闭，返回值为0
+             出错 -1 
+      
+      ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+                      const struct sockaddr *dest_addr, socklen_t addrlen);     
+     功能：发送消息
+     参数：sockfd  网络套接字
+           buf     发送缓存区的首地址
+           len     缓存区大小
+           flags   0  阻塞
+           dest_addr 目的的网络信息结构体（接收者的信息结构体）
+           addrlen 网络的结构体大小
+     返回值：成功 实际发送的字节数
+                  当对方关闭，返回值为0
+             出错 -1 
+      
+【6】IO模型
+     1-- 阻塞式IO
+         最常用，最简单，效率低。进程阻塞在函数上。
+         读阻塞：read，fgets，getchar,accept
+         写阻塞：write
+
+     2-- 非阻塞式IO
+         效率高，不常用。
+        
+         一种打开文件时设置标志位：
+              fd = open（pathname,   O_RDONLY|O_NONBLOCK）；
+
+         二种进程运行过程之中修改标志位： 
+                #include <unistd.h>
+                #include <fcntl.h>
+
+                int fcntl(int fd, int cmd, ... /* arg */ );
+                功能：对文件属性进行获取或者设置
+                参数：fd   文件描述符
+                      cmd  F_GETFL
+                           F_SETFL
+                      arg  它是否存在取决于cmd指令
+                返回值：成功 得到一些属性信息
+                             0
+                        出错 -1
+
+                对位操作，寄存器操作，遵循 读--改--写
+
+                int flags;
+
+                flags = fcntl(fd, F_GETFL); // 读
+                flags |= O_NONBLOCK;  // 改
+                fcntl(fd, F_SETFL, flags); // 写
+          
+
+
+
+
+
+
+

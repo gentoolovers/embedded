@@ -164,7 +164,6 @@ int fputc(int c, FILE *stream);
 练习:
 实现一个文件拷贝的功能
 
-
 ** 多个字符的读写(字符串读写)
 
 char *fgets(char *s, int size, FILE *stream);
@@ -272,8 +271,6 @@ struct student stu2;
 
   注意:
   默认情况gcc只能识别它自带的库，无法识别第三方库(不是gcc携带的)
-
-
 *** 静态库
   <1>将 xxx.c 编译成 xxx.o
      gcc -c xxx.c -o xxx.o
@@ -282,7 +279,6 @@ struct student stu2;
 
   <3>使用
      gcc  xxx.c -L 库的路径  -l库的名字
-
 
 *** 动态库
   <1>将 xxx.c 编译成 xxx.o
@@ -384,7 +380,7 @@ struct task_struct{
    renice  10   8123  -> 修改成nice值为  10
    renice  -10  8213  -> 修改成nice值为 -10
 
-**  Linux 子进程创建
+** Linux 子进程创建
 
 -------------------------------------------------------------------------------------
 tags : 一个索引文件，根据索引文件可以找的符号所在文件定义
@@ -651,7 +647,6 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex);
   信号量V操作
   int sem_post(sem_t *sem);
 
-
 *** 条件变量
 
 (1)定义条件变量
@@ -720,7 +715,6 @@ int pipe(int pipefd[2]);
 ---------------------------------------------------------------------------------------------------------
 练习:
 父进程向管道中输入数据，子进程从管道中读取数据，如果输入"quit",父子进程结束
-
 *** 有名管道
 特点:
 它在文件系统中存在一个文件和有名管道对应，可以用于任意的进程间通信
@@ -732,8 +726,6 @@ int mkfifo(const char *pathname, mode_t mode);
 @mode     指定文件的权限
 返回值:
 成功返回0，失败返回-1
-
-
 **** 打开文件
 open
 
