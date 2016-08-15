@@ -368,6 +368,207 @@
 
      int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
+* 第四天
+【1】poll 实现并发服务器
+     int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+      功能：与select 相似。阻塞等待被监听文件描述符准备就绪。如果准备就绪就立刻返回（不考虑timeout）。
+      参数：fds   要监听的文件描述符的数组
+            nfds  监听的文件描述符的个数
+            timeout  超时时间值
+      返回值：成功 已经准备就绪的文件描述符的个数
+                   如果timeout 时间到达时，还没有资源准备就绪，那么返回值为0
+              失败 -1
+
+       struct pollfd {
+               int   fd;         /* file descriptor */  要监听的文件描述符
+               short events;     /* requested events */ 感兴趣的事件
+               short revents;    /* returned events */  实际发生的事件
+       };
+
+
+    #define INADDR_ANY      ((in_addr_t) 0x00000000)  代表的是任意的本机的ip地址
+* 第五天
+【1】unix 域套接字通信
+
+     socket同样可以用于本地通信
+     创建套接字时使用本地协议PF_UNIX(或PF_LOCAL)。
+     分为流式套接字和用户数据报套接字
+
+     和其他进程间通信方式相比使用方便、效率更高
+
+
+【2】tcp 本地通信
+
+     tcp 服务器流程：
+
+           socket(AF_UNIX, SOCK_STREAM, 0)
+
+           bind(，本地地址， )
+
+           listen(，)
+
+           accept(，，)
+
+           recv() / send()
+
+                   ……
+
+     tcp 客户端流程：
+
+         socket(PF_UNIX, SOCK_STREAM, 0)
+
+         bind(，本地地址， )   //   可选
+
+         connect(，，)
+
+         recv() / send()
+
+
+     填充本地信息结构体：
+         struct sockaddr_un {
+         __kernel_sa_family_t sun_family; /* AF_UNIX */
+         char sun_path[UNIX_PATH_MAX];   /* pathname */ 路径 path
+        };
+
+【3】UDP 本地通信
+
+     udp服务器流程：
+           socket(PF_UNIX, SOCK_DGRAM, 0)
+
+            bind(，本地地址， )
+
+            recvfrom()
+
+            sendto()
+
+    udp 客户端流程：
+
+            socket(PF_UNIX, SOCK_DGRAM, 0)
+
+             bind(，本地地址， )     //  必须绑定，否则客户端无法接收数据
+
+             sendto()
+
+             recvfrom()    //  若没有绑定地址，无法接收数据
+
+                     ……
+
+【4】数据库
+
+    安装数据库：
+         1-- 本地安装
+             sudo  dpkg  -i  *.deb
+
+    sqlite 命令：
+         1-- 系统命令， 以“.”开头的命令都是系统命令，不需要';'结束
+             .quit   退出
+             .exit   退出
+             .help 　帮助
+　　　　　　 .table  查看数据中表的个数及名字
+             .schema 查看表的结构图
+
+         2-- sql 语句
+
+　　　　　　　创建一张表
+　　　　　　　create table student (id int, name char,score int);
+　　　　　　　
+              向表中插入一条记录
+              insert into student values(1001, 'zhangsan', 80);
+              insert into student values(1003, "zhaoliu", NULL);
+              insert into student (name,score) values('lisi', 90);
+
+              查询数据库
+              select * from student;
+              select * from student where id=1001;
+              select * from student where name='zhangsan' and score=80;
+              select * from student where score=80 or id=1002;
+
+              删除一条记录
+              delete from student where id=1003;
+
+              更新一条记录
+              update student set name='wangwu' where id=1002;
+              update student set id=1004 ,score=89 where name='lisi';
+
+
+
+              添加一列
+              alter table student add column phone int;
+
+              sqlite3 不支持直接删除一列，只能采取间接的方式。
+              1，先创建一个新表，复制原表的相关字段
+                 create table stu as select id, name, score from student;
+
+              2，删除原表
+                 drop table student;
+
+              3，将新表名字改成原表名字
+                 alter table stu rename to student;
+
+             主键：
+               如果对相关字段，加上主键修饰，那么代表这个字段独一无二。不能重复。
+               CREATE TABLE student (name char primary key, score int);
+
+             主键，并且自动增长
+             create table student (id integer primary key autoincrement, name char, score int);
+
+【5】数据库C语言API
+     int sqlite3_open(
+      const char *filename,   /* Database filename (UTF-8) */
+      sqlite3 **ppDb          /* OUT: SQLite db handle */
+      );
+     功能：打开或者创建一个数据库
+     参数：filename  数据的名字
+           ppdb      数据库句柄
+     返回值：成功 SQLITE_OK
+             失败 error_code
+
+    const char *sqlite3_errmsg(sqlite3*);
+    功能：得到错误信息描述
+
+    int sqlite3_close(sqlite3*);
+    功能：关闭一个数据库
+
+    int sqlite3_exec(
+     sqlite3* db,                                  /* An open database */
+     const char *sql,                           /* SQL to be evaluated */
+     int (*callback)(void* arg,int,char**,char**),  /* Callback function */
+     void * arg,                                    /* 1st argument to callback */
+     char **errmsg                              /* Error msg written here */
+     );
+    功能：执行一条sql语句
+    参数：db   数据库句柄
+          sql  将要被执行sql语句
+          callback 回调函数，只有执行查询语句，才为此参数赋值
+          arg    给回调函数传参（回调函数的第一个参数）
+          errmsg  错误消息
+    返回值：成功 SQLITE_OK
+            出错 errcode
+
+   int (*callback)(void* arg,int ncolumn ,char** f_value,char** f_name),
+   功能：得到查询结果
+   参数：arg  自己传递的参数
+         ncolumn  列的数量
+         f_value  列的内容
+         f_name  列的名称
+
+【6】完成学生信息系统
+     sqlite3_get_table() 实现学生信息的查询。
+
+     int sqlite3_get_table(
+    sqlite3 *db,          /* An open database */
+    const char *zSql,     /* SQL to be evaluated */
+    char ***pazResult,    /* Results of the query */
+    int *pnRow,           /* Number of result rows written here */
+    int *pnColumn,        /* Number of result columns written here */
+    char **pzErrmsg       /* Error msg written here */
+   );
+
+【6】在线词典
+     实现在线词典，服务支持多个客户端同时查询。
+     用户需要注册(参考演示效果)，用户信息保存在sqlite3 数据库中。
+     历史记录需要保存（参考演示效果），历史记录保存在sqlite3 数据库中。
+     完成单词的查询。（单词信息保存在文件中，需要进行文件的读取，比较操作）。
 * udp
 ** server
 #+BEGIN_SRC C :main no :tangle udp-server.c

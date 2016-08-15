@@ -1,0 +1,18 @@
+【1】poll 实现并发服务器
+     int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+      功能：与select 相似。阻塞等待被监听文件描述符准备就绪。如果准备就绪就立刻返回（不考虑timeout）。
+      参数：fds   要监听的文件描述符的数组
+            nfds  监听的文件描述符的个数
+            timeout  超时时间值
+      返回值：成功 已经准备就绪的文件描述符的个数
+                   如果timeout 时间到达时，还没有资源准备就绪，那么返回值为0
+              失败 -1
+
+       struct pollfd {
+               int   fd;         /* file descriptor */  要监听的文件描述符
+               short events;     /* requested events */ 感兴趣的事件
+               short revents;    /* returned events */  实际发生的事件
+       };
+
+
+    #define INADDR_ANY      ((in_addr_t) 0x00000000)  代表的是任意的本机的ip地址

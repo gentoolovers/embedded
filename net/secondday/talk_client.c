@@ -50,7 +50,7 @@ int main(int argc, const char *argv[])
     buf[strlen(buf)-1] = '\0';
     sprintf(msg,"L%s",buf);
 
-    if(sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
+    if(sendto(sockfd, &msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
     {
         err_log("fail to sendto");
     }
@@ -61,12 +61,12 @@ int main(int argc, const char *argv[])
         fgets(buf, N, stdin);
         buf[strlen(buf)-1] = '\0';
         sprintf(msg,"C%s",buf);
-
+        printf("%s\n",msg);
         if(strncmp(buf, "quit", 4) == 0)
         {
             sprintf(msg,"Q%s",buf);
 
-            if(sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
+            if(sendto(sockfd, &msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
             {
                 err_log("fail to sendto");
             }
@@ -74,7 +74,7 @@ int main(int argc, const char *argv[])
         }
 
 
-        if(sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
+        if(sendto(sockfd, &msg, N, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
         {
             err_log("fail to sendto");
         }

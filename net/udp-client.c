@@ -41,19 +41,25 @@ int main(int argc, const char *argv[])
 
     socklen_t addrlen=sizeof(struct sockaddr);
 
+    if(bind(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
+    {
+        err_log("fail to bind");
+    }
+
     while(1)
     {
+
+/*
         printf("<client>");
         fgets(buf, N, stdin);
 
-        buf[strlen(buf)-1] = '\0';
+         buf[strlen(buf)-1] = '\0';
         sendto(sockfd, buf, strlen(buf),0,(struct sockaddr* )&serveraddr,addrlen);
 
         if(strncmp(buf, "quit", 4) == 0)
-
             break;
-
-        ret_recv = recvfrom(sockfd, buf-1, strlen(buf), 0,(struct sockaddr*)&serveraddr, &addrlen);
+*/
+        ret_recv = recvfrom(sockfd, buf-1, strlen(buf), 0,(struct sockaddr*)&clientaddr, &addrlen);
         if(ret_recv <0)
         {
             err_log("fail to recv");

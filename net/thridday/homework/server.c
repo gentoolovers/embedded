@@ -19,7 +19,7 @@
 typedef struct _tag_threadnode
 {
 
-    int a;
+    int* a;
     fd_set fds;
 }threadnode;
 
@@ -29,7 +29,7 @@ void do_pthread(void *arg)
     threadnode* thread_struct=(threadnode*)arg;
 
 
-        if(recv(thread_struct->a, buf, N, 0) < 0)
+        if(recv(*(thread_struct->a), buf, N, 0) < 0)
         {
             err_log("fail to recv");
         }
@@ -38,18 +38,19 @@ void do_pthread(void *arg)
         if(strncmp(buf, "quit", 4) == 0)
         {
             //...
-            FD_CLR(thread_struct->a, &(thread_struct->fds));
-            close(thread_struct->a);
+            FD_CLR(*(thread_struct->a), &(thread_struct->fds));
+            close(*(thread_struct->a));
 
         }
 
         strcat(buf, " from server.");
 
-        if(send(thread_struct->a, buf,N, 0) < 0)
+        if(send(*(thread_struct->a), buf,N, 0) < 0)
         {
             err_log("fail to send");
         }
-
+free(thread_struct->a);
+thread_struct->a ==NULL;
 
 }
 int main(int argc, const char *argv[])
@@ -130,7 +131,8 @@ int main(int argc, const char *argv[])
                 }
                 else
                 {
-                    thread_struct.a=i;
+                    thread_struct.a=(int *)malloc(sizeof(int));
+					*(thread_struct.a)=i;
                     thread_struct.fds=readfds;
                    ret_thread= pthread_create(&thread_id, NULL,do_pthread,&thread_struct);
                    if(ret_thread <0)

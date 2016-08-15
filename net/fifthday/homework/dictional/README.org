@@ -1,0 +1,851 @@
+* 在线词典
+** 流程图
+#+BEGIN_SRC dot :file server.jpg
+  digraph server{
+      node[shape=box];
+      s_start[label="server start"];
+      c_start[label= "client start"];
+      s_start->s_info;
+
+      s_info[label="information processing"];
+      c_menu[label="client first menu"];
+      c_start->c_menu;
+
+
+      c_menu->s_info[label="send 1 or 2 or 3"];
+      s_info->c_menu[label="recv"];
+
+      c_secmenu[label="client second menu"];
+      c_menu->c_secmenu[label="login success"];
+
+      c_query[label="client query words"];
+      c_history[label="client query history"];
+      c_sec_quit[label="client quit"];
+
+      c_secmenu->c_query[label="query"];
+      c_secmenu->c_history[label="history"];
+      c_secmenu->c_sec_quit[label="quit"];
+
+
+
+      register[label="register module"];
+      s_info->register[label="register"];
+      register->s_info[label="register success or not"];
+
+      login[label="login"];
+      s_info->login[label="login success"];
+      login->s_info[label="login fail"]  ;
+
+      info2[label="information processing"];
+      login->info2;
+      query[label="query words"];
+      history[label="query history"];
+      info2->query[label="query words"];
+      info2->history[label="history of query"];
+
+
+
+
+
+  }
+#+END_SRC
+
+#+RESULTS:
+[[file:server.jpg]]
+
+** server
+*** 设计思路
+**** 处理一级菜单
++ 1 register: 查询 usr 数据库,假如用户名不存在则,插入用户,存在则返回失败信息
++ 2 login   : 查找用户名,对比密码是否正确,正确进入二级菜单,错误返回以及菜单.返回信息
++ 3 quit    : 回收线程资源
+**** 处理二级菜单
++ 1 query :open->fgets->strncmp
+假如成功则先执行 (1):插入record数据库-> <用户名>:<时间>:<ip>:<查询的单词>
+                (2):返回给用户信息
++ 2 history :根据用户名查询用户数据库信息返回给用户
++ 3 quit    :回收线程资源
+*** 源代码
+#+BEGIN_SRC C :main no :tangle dictionary-server.c
+    #include <stdio.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <stdlib.h>
+    #include <unistd.h>
+    #include <string.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <fcntl.h>
+    #include <time.h>
+    #include <sqlite3.h>
+
+  #define err_log(errlog)                                          \
+      do{                                                          \
+          printf("%s:%s --> %d  \n", __FILE__, __func__, __LINE__);\
+          perror(errlog);                                          \
+          exit(1);                                                 \
+      }while(0)
+
+
+    #define N 2048
+    #define SQL 3200
+    #define  DATABASE      "mydata.db"
+
+    typedef struct _tag_msg
+    {
+        int acceptfd;
+        sqlite3 *db;
+
+    }MSG;
+    int callback(void* arg,int ncolumn,char **f_value,char** f_name)
+    {
+        int ret=-1;
+        MSG* msg=(MSG*)arg;
+        char sql[SQL];
+        struct sockaddr_in clientaddr;
+        socklen_t addrlen=sizeof(struct sockaddr);
+        int i=0;
+        for(i=0;i<ncolumn;i++)
+        {
+            sprintf(sql," %s ",f_value[i]);
+        }
+        if((sendto(msg->acceptfd, sql, N, 0, (struct sockaddr *)&clientaddr, addrlen))< 0)
+        {
+            err_log("fail to sendto\n");
+        }
+
+        ret=0;
+        return ret;
+
+    }
+    int do_query_db(void* arg,char* buf)
+    {
+
+        MSG* msg=(MSG*)arg;
+        char sql[SQL];
+        char* errmsg;
+        sprintf(sql,"select * from msg->db wherer name=%s",buf);
+        if((sqlite3_exec(msg->db,sql,callback,msg,&errmsg)) != SQLITE_OK)
+        {
+            return -1;
+        }else
+        {
+            return 1;
+        }
+
+    }
+   void user_register(void *arg)
+    {
+        char buf[N];
+        char tmp[N];
+        char sql[SQL];
+        char* errmsg;
+        int ret_do_query_db;
+        int ret_recv;
+        MSG* msg=(MSG*)arg;
+        struct sockaddr_in clientaddr;
+        socklen_t addrlen=sizeof(struct sockaddr);
+
+        printf("register\n");
+        printf("%d\n",msg->acceptfd);
+
+        //接收用户名
+        if((recvfrom(msg->acceptfd,buf,N,0,(struct sockaddr*)&clientaddr,&addrlen))<0)
+        {
+            err_log("fail to recv\n");
+        }
+        buf[strlen(buf)-1]='\0';
+        //注册用户
+        sprintf(sql, "insert into usr  values('%s',NULL);",buf);
+        if(sqlite3_exec(msg->db, sql, NULL, NULL, &errmsg) != SQLITE_OK)
+        {
+            if((sendto(msg->acceptfd, "N", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+            {
+                err_log("fail to sendto\n");
+            }
+            return;
+        }
+        else
+        {
+
+            if((sendto(msg->acceptfd, "Y", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+            {
+                err_log("fail to sendto\n");
+            }
+            bzero(tmp,sizeof(tmp));
+            bzero(sql,sizeof(sql));
+
+            //接收用户密码
+            if((recvfrom(msg->acceptfd,tmp,N,0,(struct sockaddr*)&clientaddr,&addrlen)) <0)
+            {
+                err_log("fail to recv\n");
+            }
+           // tmp[strlen(tmp) -1]='\0';
+
+            sprintf(sql,"update usr set passwd='%s' where name='%s';",tmp,buf);
+
+            if((sqlite3_exec(msg->db,sql,NULL,NULL,&errmsg)) != SQLITE_OK)
+            {
+                if((sendto(msg->acceptfd, "N", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto\n");
+                }
+                err_log("sqlite3_exec update passwd fail\n");
+            }else
+            {
+                usleep(50);
+                if((sendto(msg->acceptfd, "Y", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto\n");
+                }
+                printf("register done.\n");
+                return;
+            }
+
+        }
+    }
+    void user_quit(char* tmp)
+    {
+        printf("%s quit\n",tmp);
+    }
+    query_words(void* arg,char* name)
+    {
+        FILE* fp;
+        int ret_read;
+        char buf[N];
+        char sql[SQL];
+        char tmp[N];
+        char* errmsg;
+        char fgets_buf[N];
+        int ret_recv;
+        struct sockaddr_in clientaddr;
+        MSG* msg=(MSG*)arg;
+        time_t t;
+        struct tm *ptm;
+        t=time(NULL);
+        ptm=localtime(&t);
+
+        socklen_t addrlen=sizeof(struct sockaddr);
+        if((sendto(msg->acceptfd, "Y", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+        {
+            err_log("fail to sendto");
+        }
+
+        while(1)
+        {
+            if((fp=fopen("dict.txt","r")) == NULL)
+            {
+                err_log("fail to open \n");
+            }
+            if((ret_recv = recvfrom(msg->acceptfd,buf,N,0,(struct sockaddr*)&clientaddr,&addrlen)) <0)
+            {
+                err_log("fail to recv\n");
+            }
+            if(buf[0]== '#')
+            {
+                printf("return menu\n");
+                break;
+            }
+            printf("start query words\n");
+
+            while(1)
+            {
+                if((fgets(fgets_buf, N, fp)) == NULL)
+                {
+                    if((sendto(msg->acceptfd, "N", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                    {
+                        err_log("fail to sendto");
+                    }
+                    break;
+                }else
+                {
+                    if(((strncmp(fgets_buf,buf,strlen(buf))) ==0)&& (fgets_buf[strlen(buf)] == ' '))
+                    {
+                        char time_buf[N] = {};
+                        sprintf(time_buf,"%d-%d-%d",ptm->tm_year+1900,ptm->tm_mon+1,ptm->tm_mday);
+                        sprintf(sql,"insert into record values('%s','%s','%s')",name,time_buf,buf);
+                        if(sqlite3_exec(msg->db,sql,NULL, NULL, &errmsg) != SQLITE_OK)
+                        {
+                            printf("%s\n", errmsg);
+                        }
+                        else
+                        {
+                            printf("insert table success.\n");
+                            sprintf(tmp,"Y%s",fgets_buf);
+                            if((sendto(msg->acceptfd, tmp, N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                            {
+                                err_log("fail to sendto");
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            fclose(fp);
+        }
+    }
+    void history_query(void* arg,char* tmp)
+    {
+        char buf[N];
+        char sql[SQL];
+        char** db_ret;
+        char* errmsg;
+        int row,column;
+        int ret_recv;
+        int i,j,index;
+        MSG* msg=(MSG*)arg;
+        struct sockaddr_in clientaddr;
+        socklen_t addrlen=sizeof(struct sockaddr);
+        sprintf(sql,"select * from record where name='%s';",tmp);
+        if((sqlite3_get_table(msg->db,sql,&db_ret,&row,&column,&errmsg)) != SQLITE_OK)
+        {
+            err_log("fail to sqlite3_get_table\n");
+        }
+
+        if(row < 1)
+        {
+            buf[0] = '\0';
+            sprintf(buf,"empty!");
+        }
+        else
+        {
+            for(i=1;i<row + 1;i++)
+            {
+                buf[0] = '\0';
+                for(j =0;j<column-1;j++)
+                {
+
+                    strcat(buf,db_ret[j + i*column]);
+                    strcat(buf,"|");
+                }
+                strcat(buf, db_ret[j+i*column]);
+                printf("%s\n",buf);
+                if((sendto(msg->acceptfd, buf, N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto\n");
+                }
+            }
+        }
+
+
+    }
+
+    int user_login(void* arg)
+    {
+        MSG *msg=(MSG*)(arg);
+        char buf[N];
+        char sql[SQL];
+        char tmp[N];
+        char* errmsg;
+        int ret_query;
+        struct sockaddr_in clientaddr;
+        socklen_t addrlen=sizeof(struct sockaddr);
+        //查询数据库,核对密码
+            printf("usr_login\n");
+
+            if((recvfrom(msg->acceptfd,buf,N,0,(struct sockaddr*)&clientaddr,&addrlen))<0)
+            {
+                err_log("fail to recv\n");
+            }
+            printf("buf is %s\n",buf);
+
+            sprintf(sql,"select * from usr where name='%s'",buf);
+            if((sqlite3_exec(msg->db,sql,NULL,NULL,&errmsg)) != SQLITE_OK)
+            {
+                printf("*********\n");
+                if((sendto(msg->acceptfd, "N", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto\n");
+                }
+
+            }else
+            {
+                if((sendto(msg->acceptfd, "Y", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto\n");
+                }
+
+                if((recvfrom(msg->acceptfd,tmp,N,0,(struct sockaddr*)&clientaddr,&addrlen))<0)
+                {
+                    err_log("fail to recv\n");
+                }
+
+                sprintf(sql,"select * from usr where name='%s' and passwd = '%s';",buf,tmp);
+                if((sqlite3_exec(msg->db,sql,NULL,NULL,&errmsg)) != SQLITE_OK)
+                {
+                    if((sendto(msg->acceptfd, "n", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                    {
+                        err_log("fail to sendto\n");
+                    }
+                }else
+                {
+                    usleep(50);
+                    if((sendto(msg->acceptfd, "Y", N, 0, (struct sockaddr *)&clientaddr, addrlen)) < 0)
+                    {
+                        err_log("fail to sendto\n");
+                    }
+
+                    printf("%s login success\n",tmp);
+
+                }
+            }
+
+
+
+        // 处理二级菜单
+        while(1)
+        {
+            if((recvfrom(msg->acceptfd, buf, N, 0, (struct sockaddr*)&clientaddr, &addrlen) )< 0)
+            {
+                err_log("fail to recvfrom");
+            }
+            switch(buf[0])
+            {
+            case '1':
+                query_words(arg,tmp);
+                continue;
+            case '2':
+                history_query(arg,tmp);
+                continue;
+            case '3':
+                user_quit(tmp);
+                continue;
+            default:
+                continue;
+            }
+        }
+    }
+    void* pthread_do(void* arg)
+    {
+        char buf[N];
+        MSG* msg=(MSG*)arg;
+        struct sockaddr_in clientaddr;
+        socklen_t addrlen=sizeof(struct sockaddr);
+        //处理一级菜单
+        while(1)
+        {
+            bzero(buf,sizeof(buf));
+
+            if((recvfrom(msg->acceptfd, buf, N, 0, (struct sockaddr*)&clientaddr, &addrlen)) < 0)
+            {
+                err_log("fail to recvfrom");
+            }
+            switch(buf[0])
+            {
+            case '1':
+                user_register(arg);
+                break;
+            case '2':
+                user_login(arg);
+                break;
+            case '3':
+                printf("usr quit\n");
+                break;
+            default:
+                break;
+            }
+        }
+        free(msg);
+        msg==NULL;
+    }
+    int main(int argc,const char* argv[])
+    {
+        int sockfd;
+        int acceptfd;
+        char* errmsg;
+        struct sockaddr_in serveraddr,clientaddr;
+        pthread_t thread_id;
+        MSG usr_msg;
+
+        // 判断参数是否正确
+        if(argc <3)
+        {
+            fprintf(stderr,"Usage:%s <serverip> <port>\n",argv[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        // 创建套接字,得到套接字描述符
+        if((sockfd=socket(AF_INET,SOCK_STREAM,0)) <0)
+        {
+            err_log("fail to socket\n");
+        }
+
+        // 填充网络信息结构体
+        serveraddr.sin_family=AF_INET;
+        serveraddr.sin_addr.s_addr=inet_addr(argv[1]);
+        serveraddr.sin_port=htons(atoi(argv[2]));
+
+        //把 sockfd 与 serveraddr 绑定在一起
+        if((bind(sockfd,(struct sockaddr*)&serveraddr,sizeof(serveraddr))) < 0 )
+        {
+            err_log("fail to bind\n");
+        }
+
+        //把 sockfd 设置为被动模式,能监听到客户端链接
+        if((listen(sockfd,15)) <0 )
+        {
+            err_log("fail to listen\n");
+        }
+
+        //打开数据库
+        if((sqlite3_open(DATABASE,&(usr_msg.db)) != SQLITE_OK))
+        {
+            printf("%s\n",sqlite3_errmsg(usr_msg.db));
+            exit(EXIT_FAILURE);
+        }
+        //创建表
+        if((sqlite3_exec(usr_msg.db,"create table usr (name char primary key,passwd char);",NULL, NULL, &errmsg)) != SQLITE_OK)
+        {
+            printf("%s\n", errmsg);
+        }
+        else
+        {
+            printf("Create table success.\n");
+        }
+        if((sqlite3_exec(usr_msg.db,"create table record (name char,date char,word char);",NULL, NULL, &errmsg)) != SQLITE_OK)
+        {
+            printf("%s\n", errmsg);
+        }
+        else
+        {
+            printf("Create table success.\n");
+        }
+
+        //死循环,监视是否有客户端链接,有则创建一个线程去处理
+        socklen_t addrlen=sizeof(struct sockaddr);
+        while(1)
+        {
+
+            MSG* msg=(MSG*)malloc(sizeof(MSG));
+            msg->db=usr_msg.db;
+
+            // 接受客户端链接,并创建专门为该客户端收发消息的 acceptfd
+            if((msg->acceptfd=accept(sockfd,(struct sockaddr*)&clientaddr,&addrlen)) < 0)
+            {
+                err_log("fail to accept\n");
+            }
+
+            //创建线程,并执行线程处理函数
+            if((pthread_create(&thread_id, NULL,pthread_do, msg)) != 0)
+            {
+                err_log("fail to pthread_create\n");
+            }
+
+            //把线程标记为分离式,线程结束后自动回收资源
+            if((pthread_detach(thread_id)) != 0 )
+            {
+                err_log("fail to pthread_detach\n");
+            }
+
+        }
+
+        return 0;
+    }
+#+END_SRC
+** client  
+*** 设计思路
+**** 一级菜单
++ 1 register
++ 2 login
++ 3 quit
+
+具体实现:给服务器发 1 || 2|| 3,然后等待服务器回应.
+1 ->回应:注册是否成功,用户名已存在则注册失败,无论是否成功都返回一级菜单
+2 ->回应:登录是否成功,成功则进入二级菜单,登录失败,返回一级菜单
+3 ->回应:退出
+**** 二级菜单
++ 1 query
++ 2 history
++ 3 quit
+具体实现:给服务器发 1 || 2 || 3 ||
+1->回应:查到单词的信息,失败返回原因
+2->回应:该用户的record表信息
+3->无回应
+*** 源代码
+#+BEGIN_SRC C :main no :tangle dictionary-client.c
+      #include <stdio.h>
+      #include <sys/socket.h>
+      #include <netinet/in.h>
+      #include <arpa/inet.h>
+      #include <stdlib.h>
+      #include <unistd.h>
+      #include <string.h>
+
+  #define err_log(errlog)                                          \
+      do{                                                          \
+          printf("%s:%s --> %d  \n", __FILE__, __func__, __LINE__);\
+          perror(errlog);                                          \
+          exit(1);                                                 \
+      }while(0)
+
+
+      #define N 2048
+
+      int  user_register_or_login(char* buf,int sockfd,struct sockaddr_in serveraddr)
+      {
+
+          char msg[N];
+          socklen_t addrlen=sizeof(struct sockaddr);
+
+              // 1表示注册,2表示登录
+              if(buf[0]=='1')
+              {
+                  if((sendto(sockfd, "1", N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+                  {
+                      err_log("fail to sendto");
+                  }
+              }else if(buf[0] =='2')
+              {
+                  if((sendto(sockfd, "2", N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+                  {
+                      err_log("fail to sendto");
+                  }
+              }else
+              {
+                  printf("buf[0] error\n");
+              }
+
+              printf("username\n");
+              fgets(msg, N, stdin);
+              buf[strlen(msg)-1] = '\0';
+
+              if((sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+              {
+                  err_log("fail to sendto");
+              }
+              if((recvfrom(sockfd, msg, N, 0, (struct sockaddr*)&serveraddr, &addrlen)) < 0)
+              {
+                  err_log("fail to recvfrom");
+              }
+
+
+              //假如msg[0] 为Y 或者y,则可以注册或者登录
+              if(msg[0] =='Y'|| msg[0]=='y')
+              {
+                  printf("you passwd \n");
+                  bzero(msg,sizeof(msg));
+                  fgets(msg, N, stdin);
+                  msg[strlen(msg)-1] = '\0';
+                  if((sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+                  {
+                      err_log("fail to sendto");
+                  }
+
+                  msg[0]='\0';
+                  if((recvfrom(sockfd, msg, N, 0, (struct sockaddr*)&serveraddr, &addrlen)) < 0)
+                  {
+                      err_log("fail to recvfrom");
+                  }
+                  printf("%c\n",msg[0]);
+                  if((msg[0] == 'Y')&& (buf[0] =='1'))
+                  {
+                      printf("register success\n");
+                      return 1;
+                  }else if((msg[0]=='Y')&& (buf[0] =='2'))
+                  {
+                      printf("login success\n");
+                      return 2;
+                  }else
+                  {
+                        printf("error\n");
+                  }
+
+              }else if((msg[0]== 'N') && (buf[0] =='1'))
+              {
+                  printf("fail to register,username already exist\n");
+
+              }else if((msg[0] == 'N') && (buf[0] =='2'))
+              {
+                  printf("invalid username\n");
+
+              }else if((msg[0]== 'n') && (buf[0] =='2'))
+              {
+                  printf("invalid passwd\n");
+
+              }else
+              {
+                  printf("user_register_or_login error\n");
+                  exit(EXIT_FAILURE);
+              }
+
+      }
+
+      user_quit(int sockfd,struct sockaddr_in  serveraddr)
+      {
+
+          socklen_t addrlen=sizeof(struct sockaddr);
+
+          if((sendto(sockfd, "3", N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+          {
+              err_log("fail to sendto");
+          }
+          printf("user quit\n");
+          exit(EXIT_SUCCESS);
+      }
+    void query_words(int sockfd,struct sockaddr_in serveraddr)
+    {
+        char msg[N];
+        socklen_t addrlen=sizeof(struct sockaddr);
+        if((sendto(sockfd,"1", N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+        {
+            err_log("fail to sendto");
+        }
+
+        if((recvfrom(sockfd, msg, N, 0, (struct sockaddr*)&serveraddr, &addrlen)) < 0)
+        {
+            err_log("fail to recvfrom");
+        }
+        if(msg[0] == 'Y')
+        {
+            while(1)
+            {
+                printf("# is return to menu\n");
+                printf("please input the words that you want to query\n");
+                fgets(msg, N, stdin);
+                msg[strlen(msg)-1] = '\0';
+                if((sendto(sockfd, msg, N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+                {
+                    err_log("fail to sendto");
+                }
+                if(msg[0] == '#')
+                {
+                    break;
+                }
+
+                if((recvfrom(sockfd, msg, N, 0, (struct sockaddr*)&serveraddr, &addrlen)) < 0)
+                {
+                    err_log("fail to recvfrom");
+                }
+
+                if(msg[0] == 'Y')
+                {
+                    printf("%s\n",msg+1);
+                }else if(msg[0] == 'N')
+                {
+                    printf("sorry ,it's not a word\n");
+                }else
+                {
+                    printf("query error\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+
+    }
+    void history_of_query(int sockfd,struct sockaddr_in serveraddr)
+    {
+        char msg[N];
+        int ret_recv;
+        socklen_t addrlen=sizeof(struct sockaddr);
+        if((sendto(sockfd, "2", N, 0, (struct sockaddr *)&serveraddr, addrlen)) < 0)
+        {
+            err_log("fail to sendto");
+        }
+
+            if((ret_recv=recvfrom(sockfd, msg, N, 0, (struct sockaddr*)&serveraddr, &addrlen)) < 0)
+            {
+                err_log("fail to recvfrom");
+            }
+            printf("%s\n",msg);
+
+
+    }
+      second_menu(int sockfd,struct sockaddr_in serveraddr)
+      {
+          char buf[N];
+          socklen_t addrlen=sizeof(struct sockaddr);
+
+          //二级菜单
+          while(1)
+          {
+              printf("************************************************\n");
+              printf("*      1 :query words 2 :history 3 :quit       *\n");
+              printf("************************************************\n");
+              fgets(buf, N, stdin);
+              buf[strlen(buf)-1] = '\0';
+
+              switch(buf[0])
+              {
+              case '1':
+                  query_words(sockfd,serveraddr);
+                  continue;
+              case '2':
+                  history_of_query(sockfd,serveraddr);
+                  break;
+              case '3':
+                  user_quit(sockfd,serveraddr);
+                  break;
+              default:
+                  printf("input error\n");
+              }
+
+          }
+
+      }
+
+      int main(int argc,const char* argv[])
+      {
+          int sockfd;
+          int ret_login;
+          char buf[N];
+          struct sockaddr_in serveraddr;
+          // 判断参数是否正确
+          if(argc <3)
+          {
+              fprintf(stderr,"Usage:%s <serverip> <port>\n",argv[0]);
+              exit(EXIT_FAILURE);
+          }
+
+          // 创建套接字,得到套接字描述符
+          if((sockfd=socket(AF_INET,SOCK_STREAM,0)) <0)
+          {
+              err_log("fail to socket\n");
+          }
+
+          // 填充网络信息结构体
+          serveraddr.sin_family=AF_INET;
+          serveraddr.sin_addr.s_addr=inet_addr(argv[1]);
+          serveraddr.sin_port=htons(atoi(argv[2]));
+
+          //连接服务器
+          if((connect(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
+          {
+              err_log("fail to connect");
+          }
+
+          //一级菜单
+          while(1)
+          {
+              printf("************************************************\n");
+              printf("*        1 :register 2 :login 3 :quit          *\n");
+              printf("************************************************\n");
+
+              fgets(buf, N, stdin);
+              buf[strlen(buf)-1] = '\0';
+              switch(buf[0])
+              {
+              case '1':
+                  user_register_or_login(buf,sockfd,serveraddr);
+                  continue;
+
+              case '2':
+                  ret_login= user_register_or_login(buf,sockfd,serveraddr);
+                  printf("%d\n",ret_login);
+                  if((ret_login == 2)&&(buf[0] == '2'))
+                 {
+                     second_menu(sockfd,serveraddr);
+                 }
+                 continue;
+
+              case '3':
+                  user_quit(sockfd,serveraddr);
+                  break;
+
+              default:
+                  printf("input error\n");
+              }
+
+          }
+      }
+#+END_SRC
