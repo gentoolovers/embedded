@@ -1,0 +1,104 @@
+#include"exynos_4412.h"
+
+/*1.分析电路图得出蜂鸣器控制逻辑  -  PWM*/
+/*2.找出蜂鸣器电路与主控芯片的连接关系 - GPD0_0*/
+/*3.将对应引脚设置成想要的功能 - TOUT*/
+/*4.对PWM进行进一步设置*/
+
+void delay(unsigned int Time)
+{
+	unsigned int i,j;
+	for(i=0;i<Time;i++)
+		for(j=0;j<3000;j++);
+}
+
+int main()
+{
+	/*1.将GPD0_0引脚设置成PWM功能*/
+	GPD0.CON = GPD0.CON & (~(0xF)) | (0x2);
+	/*2.设置PWM0的一级预分频  TCFG0   频率 = 100M/(99+1)=1M*/
+	PWM.TCFG0 = PWM.TCFG0 & (~(0xFF))|(99);
+	/*3.设置PWM0的二级预分频  TCFG1  频率 = 100M/(99+1)/1=1M*/
+	PWM.TCFG1 = PWM.TCFG1 & (~(0xF));
+	/*4.设置自动重装载  TCON*/
+	PWM.TCON = PWM.TCON |(1 << 3);
+	/*5.设置周期 TCNTB0*/
+	PWM.TCNTB0 = 1000;
+	/*6.设置占空比 TCMPB0*/
+	PWM.TCMPB0 = 500;
+	/*7.更新 TCNTB0中的值到递减计数器  TCON*/
+	PWM.TCON = PWM.TCON | (1 << 1);
+	/*8.关闭更新手动更新 TCON*/
+	PWM.TCON = PWM.TCON & ~(1 << 1);
+	/*9.启动定时器 TCON*/
+	PWM.TCON = PWM.TCON | 1;
+
+	while(1)
+	{
+		PWM.TCNTB0 = 1000;
+		PWM.TCMPB0 = 500;
+
+		delay(1000);
+
+		PWM.TCNTB0 = 500;
+		PWM.TCMPB0 = 250;
+		delay(1000);
+	}
+	return 0;
+}
+
+
+#include"exynos_4412.h"
+
+void delay(unsigned int Time)
+{
+	unsigned int i,j;
+	for(i=0;i<Time;i++)
+		for(j=0;j<3000;j++);
+}
+
+void UART_SEND_BYTE(char Dat)
+{
+	/*判断发送缓冲区是否为空*/
+	while(!(UART2.UTRSTAT2 & 0x2));
+	/*将想要发送的数据写入发送寄存器 UTXHn*/
+	UART2.UTXH2 = Dat;
+}
+
+void Putstr(char * Str)
+{
+	while(*Str != '\0')
+	{
+		UART_SEND_BYTE(*Str);
+		Str ++;
+	}
+}
+
+char UART_BYTE_REC(void)
+{
+	char Dat = 0;
+	while(!(UART2.UTRSTAT2 & 0x1));
+	/*将接受到的数据读取到变量*/
+	Dat = UART2.URXH2;
+	return Dat;
+}
+
+int main()
+{
+	/*1.将GPA1_0设置成UART接受功能  将GPA1_1设置成UART发送功能  GPA1CON*/
+	GPA1.CON = GPA1.CON & (~(0xFF)) | (0x22);
+	/*2.正常通信模式  无校验  一位停止位  8位数据位  ULCON2*/
+	UART2.ULCON2 = UART2.ULCON2 & ~(0x7f) | 0x3;
+	/*3.将收发均设置成轮询模式 UCON2*/
+	UART2.UCON2 = UART2.UCON2 & ~(0xF) | 0x5;
+	/*4.设置波特率为115200  UBRDIV2  UFRACVAL2*/
+	UART2.UBRDIV2 = 53;
+	UART2.UFRACVAL2 = 5;
+	while(1)
+	{
+		Putstr("hellow");
+		delay(1000);
+		//UART_SEND_BYTE(UART_BYTE_REC());
+	}
+	return 0;
+}

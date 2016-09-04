@@ -1,0 +1,18 @@
+	/*1.将GPD0_0引脚设置成PWM功能*/
+	GPD0.CON = GPD0.CON & (~(0xF)) | (0x2);
+	/*2.设置PWM0的一级预分频  TCFG0   频率 = 100M/(99+1)=1M*/
+	PWM.TCFG0 = PWM.TCFG0 & (~(0xFF))|(99);
+	/*3.设置PWM0的二级预分频  TCFG1  频率 = 100M/(99+1)/1=1M*/
+	PWM.TCFG1 = PWM.TCFG1 & (~(0xF));
+	/*4.设置自动重装载  TCON*/
+	PWM.TCON = PWM.TCON |(1 << 3);
+	/*5.设置周期 TCNTB0*/
+	PWM.TCNTB0 = 1000;
+	/*6.设置占空比 TCMPB0*/
+	PWM.TCMPB0 = 500;
+	/*7.更新 TCNTB0中的值到递减计数器  TCON*/
+	PWM.TCON = PWM.TCON | (1 << 1);
+	/*8.关闭更新手动更新 TCON*/
+	//PWM.TCON = PWM.TCON & ~(1 << 1);
+	/*9.启动定时器 TCON*/
+	PWM.TCON = PWM.TCON | 1;

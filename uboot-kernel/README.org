@@ -1,0 +1,1279 @@
+* 第一天
+** 嵌入式概念
+【0】需求：安装linux系统到开发板上。
+【1】嵌入式系统
+    以应用为中心、以计算机技术为基础、软件硬件可裁剪、适应应用系统，对功能、可靠性、成本、体积、功耗严格要求的专用计算机系统。
+
+【2】嵌入式系统软件组成部分
+（1）bootloader（uboot）
+（2）kernel    （linux）
+（3）文件系统  （根文件系统、用户文件系统）
+（4）linux应用程序
+
+【3】内核的5大功能：
+（1）进程管理（2）内存管理（3）文件管理（4）设备管理（5）网络管理
+
+【4】嵌入式Linux交叉开发环境硬件基本组成
+（1）开发主机（Host）
+     编辑和编译程序的平台设备  --PC
+（2）目标机（Target）
+     运行程序的平台设备        --开发板
+（3）连接介质
+      1-- 串口：命令交互
+      2-- 网口：数据传输
+      3-- usb ：第一次烧写,dnw
+
+
+【5】区分概念：
+（1）本地开发：应用层开发
+     主机和目标机相同。
+
+（2）交叉开发：ARM开发
+     主机和目标机不相同。
+
+** gcc 编译步骤
+【6】嵌入式Linux交叉开发环境的软件组成
+（1）源码
+（2）交叉编译工具链
+（3）开发主机上安装的软件（为方便调试）
+     1--- 串口终端软件（putty、minicom）
+     2--- tftp服务（下载内核）
+     3--- nfs服务（挂载根文件系统）
+
+【7】gcc的编译流程
+test.c
+（1）预处理
+     把宏定义展开、头文件包含、处理条件编译
+     gcc -E  test.c -o test.i   （c语言  -- c语言）
+（2）编译
+     生成汇编代码
+     gcc -S test.c -o test.S （c语言 --  汇编）
+（3）汇编
+     生目标文件
+     gcc -c test.c -o test.o （汇编 -- 二进制码）
+（4）链接
+     将所有目标文件，链接在一起生成可执行文件。
+     gcc test.o -o test.out
+
+
+【8】GCC的选项
+（1）-E :宏定义展开,包含头文件,条件编译
+（2）-S :生成汇编代码
+（3）-c :生成目标代码
+（4）-g :产生符号调试工具所必要的符号资讯
+（5）-o :确定输出文件名称
+（6）-O :对程序进行优化编译,链接
+（7）-I -i :增加头文件目录
+（8）-L  -l : L -> 指定库目录 l-> 制定库名
+（10）-D :指定宏定义 参数
+** 二进制工具
+
+addr2line:把程序地址转换为文件名和行号。给定地址的源代码行数和可执行映像，前提是编译时使用了-g选项，即调试信息。
+ar:建立、修改、提取归档文件。归档文件是包含多个文件内容的一个大文件，其结构保证了可以恢复原始文件内容。
+as:主要用来编译GNU C编译器gcc输出的汇编文件，产生的目标文件由链接器ld连接。
+ld:GNU链接器。它把一些目标和归档文件结合在一起，重定位数据，并链接符号引用。编译程序的最后一步就是调用ld。
+nm:列出目标文件中的符号。
+objcopy:文件格式转换。
+objdump:显示一个或者更多目标文件的信息，主要用来反编译。
+ranlib:产生归档文件索引，并将其保存到这个归档文件中。在索引中列出了归档文件各成员所定义的可重分配目标文件。
+readelf:显示elf格式可执行文件的信息。
+size:列出目标文件每一段的大小以及总体的大小。默认情况下，对于每个目标文件或者一个归档文件中的每个模块只产生一行输出。
+strings:打印某个文件的可打印字符串。默认情况下，只打印目标文件初始化和可加载段中的可打印字符；对于其它类型的文件它打印整个文件的可打印字符，这个程序对于了解非文本文件的内容很有帮助。
+strip:丢弃目标文件中的全部或者特定符号，减小文件体积。
+
+
+（1）readelf
+ 1-- elf ：可执行、可重定位的二进制文件。（bin、exe、srec）
+ 2-- readelf可以显示elf格式可执行文件的信息
+ 3-- $ readelf –h hello
+ 4-- readelf –S hello
+
+（2）size
+    size列出目标文件每一段的大小以及总体的大小。
+
+（3）nm
+     nm可以列出目标文件中的符号。
+
+（4）strip
+    strip用来丢弃目标文件中的全部或者特定符号，减小文件体积。对于嵌入式系统，这个命令必不可少
+
+（5）objdump
+     objdump可以显示一个或者更多目标文件的信息，主要用来反汇编。
+     objdump –d nmdemo.o >nmdemo.dis
+
+（6）objcopy
+     objcopy可以进行目标文件格式转换。
+     objcopy  -O  srec    u-boot    u-boot.srec
+     objcopy  -O  binary  u-boot    u-boot.bin
+
+（7）addr2line
+    addr2line能够把程序地址转换为文件名和行号，前提是这个可执行文件包括调试符号。
+    调试前提： 编译时一定要加-g
+** 开发板启动流程
+上电以后：
+（1）bootloader启动，初始化硬件（时钟、SDRAM、串口），引导和加载内核。
+（2）kernel启动，做进一步的初始化，挂载根文件系统
+（3）根文件系统挂载后，再挂载用户文件系统，
+（4）执行，用户文件系统上的应用程序。
+
+【11】商品模式（开发完成的商品）
+（1）bootloader  --- FLash
+（2）kernel      --- Flash
+（3）根文件系统、用户文件系统、应用程序 --- Flash
+
+
+【12】开发模式（正在研发产品阶段）
+（1）bootloader   --- Flash
+（2）kernel       --- Ubuntu主机，使用tftp下载kernel到板子的内存直接运行
+（3）rootfs       --- Ubuntu主机，使用nfs是开发板和Ubuntu共享文件系统。（类似 share共享文件夹）
+
+** tftp和nfs的安装和配置
+【13】tftp服务器安装
+（1）什么tftp服务器：
+（2）tftp服务器干什么：下载数据，主要下载kernel
+（3）tftp服务器是一个cs模型：
+     tftp客户端：开发板的uboot里已经存在，可以直接使用
+     tftp服务器：Ubuntu主机里，安装tftp服务程序
+
+
+（4）安装和配置
+    1-- 测试是否安装
+        sudo  dpkg -s tftpd-hpa
+    2-- 安装
+    sudo apt-get install tftpd-hpa tftp-hpa
+
+    3-- 配置/etc/default/tftpd-hpa
+
+    sudo  vi  /etc/default/tftpd-hpa
+
+    TFTP_USERNAME="tftp"
+    TFTP_DIRECTORY="/tftpboot"
+    TFTP_ADDRESS="0.0.0.0:69"
+        TFTP_OPTIONS="-c  -s  -l"
+
+   4-- 创建/tftpboot
+        sudo mkdir     /tftpboot
+        sudo chomd 777 /tftpboot
+
+   5-- 重启tftp服务
+       sudo  service tftpd-hpa restart
+
+（5）测试tftp服务器
+        自己总结。
+
+【14】nfs服务器安装
+（1）什么nfs服务器：
+（2）nfs服务器干什么：挂载根文件系统
+（3）nfs服务器是一个cs模型：
+     nfs客户端：开发板的uboot里已经存在，可以直接使用
+     nfs服务器：Ubuntu主机里，安装nfs服务程序
+
+
+（4）安装和配置
+    1-- 测试是否安装
+        sudo  dpkg -s nfs-kernel-server
+    2-- 安装
+    sudo apt-get install nfs-kernel-server
+
+    3-- 配置/etc/exports
+
+    sudo  vi  /etc/exports
+
+    /source/rootfs  *(rw,sync,no_root_squash,no_subtree_check)
+
+   4-- 创建/source/rootfs
+        sudo mkdir     /source/rootfs
+        sudo chomd 777 /source/rootfs
+
+   5-- 重启tftp服务
+       sudo  service nfs-kernel-server restart
+       四个ok说明启动成功。
+
+（5）测试nfs服务器
+        自己总结。
+
+
+【15】bootloader的两种启动模式
+（1）自启动模式
+（2）交回模式
+* 第二天
+【0】help命令
+help
+
+命令分类
+环境变量设置、数据传输（网络）、存储器访问（DRAM、Flash）、加载运行（bootm、go、run）
+
+
+【1】环境变量设置
+（1）打印环境变量 printenv
+（2）增加环境变量
+      setenv  new变量名  变量值
+（3）修改环境变量
+      setenv  old变量名   new变量值
+（4）删除环境变量
+      setenv  old变量名
+
+（5）保存环境变量到Flash（EMMC）
+
+
+【2】数据传输命令（tftp）
+（0）tftp下载传输必须保证
+    1--设置板子上和网络相关的环境变量
+         ipaddr    板子ip
+         serverip  服务器ip（Ubuntu主机ip）
+    setenv  ipaddr    192.168.2.x
+        setenv  serverip  192.168.2.y
+        saveenv
+
+    2-- 板子和主机电脑网络要同  （只能板子ping主机Ubuntu）
+         ping  主机ip
+（1）命令格式
+     tftp   板子的内存地址   tftp服务器根目录下的文件名
+     tftp   41000000       uImage
+
+【3】存储设备命令（内存）
+（1）显示内存内容
+     md  addr
+（2）mm    修改内存，地址自动递增。
+     nm     修改内存，地址不递增。
+
+【4】存储设备命令（外存，EMMC）
+（0）分区：
+    u-boot    放uboot
+        kernel    放内核镜像
+        dtb       放设备树文件
+        rootfs    放根文件系统
+
+movi 命令
+（1）movi  init ---初始化eMMC并显示相关信息
+（2）读分区
+    命令格式：movi read  分区名（源）  内存地址（目的）
+    movi  read  u-boot/kernel  addr
+        注意：读rootfs分区，要加大小size
+        movi  read  rootfs  addr   size
+（3）写分区
+    命令格式： movi write 分区名（目） 内存地址（源）
+        movi  write  u-boot/kernel  addr
+        movi  write rootfs  addr   size
+
+
+【5】启动命令
+（1）bootcmd
+bootcmd  自启动命令（环境变量）
+如果定义了该变量，在自启动模式下将会执行该环境变量中的命令。
+U-boot # setenv bootcmd tftp 41000000 uImage\; bootm  41000000
+U-boot # saveenv
+
+（2）bootm启动命令
+bootm  kernel-addr ramdisk-addr  dtb-addr
+
+【6】启动参数设置：
+（1）bootargs uboot会在启动内核的时候，传递给内核
+（2）开发模式（tftp下载内核，nfs挂载根文件系统）
+setenv bootargs  root=/dev/nfs nfsroot=192.168.2.8:/source/rootfs  rw console=ttySAC2,115200  ip=192.168.2.6  init=/linuxrc
+
+
+==========================================================
+
+【1】uboot的目录结构
+（1）平台相关的目录
+ 1-- 和架构相关
+      arch
+ 2-- 和cpu相关的
+      arch/arm/cpu
+      lib/arm
+ 3-- 和板子相关的
+      board/samung/origen(板子的名称)
+
+（2）和配置相关的
+  1-- 板子信息的描述相关
+      uboot根目录下boards.cfg,每一行对应一个板子。
+  2-- 板子代码的执行配置
+      include/config.h  通用
+      include/configs/fs4412.h 特定
+
+
+
+
+
+
+【2】uboot的使用
+（1）配置 make 板子名称_cofnig
+（2）编译：make
+* 第三天
+** 主要流程
+mkconfig  -A   fs4412
+$0         $1    $2
+
+fs4412   arm   armv7   fs4412   samsung    exynos
+$1        $2   $3      $4        $5         $6
+
+CONFIG_NAME = fs4412
+BOARD_NAME  = fs4412
+
+arch        = arm
+cpu         =armv7
+board       = fs4412
+vendor      = samsung
+soc         = exynos
+
+cd ./include
+
+rm -rf asm
+ln -s ../arch/arm/include/asm  asm
+
+#include <asm/xxx.h>
+
+三个链接：
+（1）asm
+（2）asm/arch
+（3）asm/proc
+
+生成了include/config.mk
+   包含了 include/configs/fs4412.h  (五星文件)
+
+BOARDDIR = fs4412
+** uboot移植流程图
+[[file:./picture/uboot2013内存分布.jpg][uboot2013内存分布图]]
+[[file:./picture/uboot2013配置流程.jpg][uboot2013配置流程图]]
+[[file:./picture/uboot2013编译流程.jpg][uboot2013编译流程图]]
+[[file:./picture/uboot2013启动流程.jpg][uboot2013启动流程图]]
+[[file:./picture/uboot2013源码启动流程.jpg][uboot2013源码启动流程图]]
+** 自己分析u-boot配置和编译过程
+*** make fs4412_config
+**** 顶层Makefile
+ %_config::	unconfig
+      @$(MKCONFIG) -A $(@:_config=)
+MKCONFIG	:= $(SRCTREE)/mkconfig
+
+mkconfig  -A   fs4412
+
+**** mkconfig 读取参数
+mkconfig 读取boards.cfg 里面的下面这行
+fs4412   arm   armv7   fs4412   samsung    exynos
+$1        $2   $3      $4        $5         $6
+并通过 set 命令把这行作为mkconfig 的参数
+CONFIG_NAME="${1%_config}" //去掉${1}的 _config
+
+arch="$2"
+cpu=`echo $3 | awk 'BEGIN {FS = ":"} ; {print $1}'`
+spl_cpu=`echo $3 | awk 'BEGIN {FS = ":"} ; {print $2}'`
+
+[ $# -gt 4 ] && [ "$5" != "-" ] && vendor="$5"
+[ $# -gt 5 ] && [ "$6" != "-" ] && soc="$6"
+
+
+    cd ./include
+    rm -f asm
+    ln -s ../arch/${arch}/include/asm asm
+    rm -f asm/arch
+
+**** 针对平台作了一系列链接,创建到平台,开发板相关的头文件的链接
+if [ -z "${soc}" ] ; then //-z 测试字符串长度是否为0
+    ln -s ${LNPREFIX}arch-${cpu} asm/arch
+else
+
+    ln -s ${LNPREFIX}arch-${soc} asm/arch
+/*
+ LNPREFIX 应该是为空,此时是在顶层uboot的include目录下
+ ln -s arch-exyons asm/arch
+ 因为asm也是一个链接文件,所以实际链接的路径是
+./arch/arm/include/asm/arch-exynos/
+
+*/
+
+fi
+
+if [ "${arch}" = "arm" ] ; then
+    rm -f asm/proc
+    ln -s ${LNPREFIX}proc-armv asm/proc
+fi
+
+**** 创建顶层Makefile 包含的文件 include/config.mk
+( echo "ARCH   = ${arch}"
+    if [ ! -z "$spl_cpu" ] ; then
+    echo 'ifeq ($(CONFIG_SPL_BUILD),y)'
+    echo "CPU    = ${spl_cpu}"
+    echo "else"
+    echo "CPU    = ${cpu}"
+    echo "endif"
+    else
+    echo "CPU    = ${cpu}"
+    fi
+    echo "BOARD  = ${board}"
+
+    [ "${vendor}" ] && echo "VENDOR = ${vendor}"
+    [ "${soc}"    ] && echo "SOC    = ${soc}"
+    exit 0 ) > config.mk
+
+最终config.mk中的内容是
+ARCH=arm
+CPU=armv7
+BOARD=fs4412
+VENDOR=samsung
+SOC=exynos
+
+**** 创建开发板相关的头文件
+ BOARDDIR=${vendor}/${board}
+> config.h
+
+echo "#define CONFIG_SYS_ARCH  \"${arch}\""  >> config.h
+echo "#define CONFIG_SYS_CPU   \"${cpu}\""   >> config.h
+echo "#define CONFIG_SYS_BOARD \"${board}\"" >> config.h
+
+[ "${vendor}" ] && echo "#define CONFIG_SYS_VENDOR \"${vendor}\"" >> config.h
+
+[ "${soc}"    ] && echo "#define CONFIG_SYS_SOC    \"${soc}\""    >> config.h
+
+cat << EOF >> config.h
+#define CONFIG_BOARDDIR board/$BOARDDIR
+#include <config_cmd_defaults.h>
+#include <config_defaults.h>
+#include <configs/${CONFIG_NAME}.h>
+#include <asm/config.h>
+#include <config_fallbacks.h>
+#include <config_uncmd_spl.h>
+EOF
+
+最终include/config.h的内容是
+#define CONFIG_SYS_ARCH  "arm"
+#define CONFIG_SYS_CPU   "armv7"
+#define CONFIG_SYS_BOARD "fs4412"
+#define CONFIG_SYS_VENDOR "samsung"
+#define CONFIG_SYS_SOC    "exynos"
+#define CONFIG_BOARDDIR board/samsung/fs4412
+#include <config_cmd_defaults.h>
+#include <config_defaults.h>
+#include <configs/fs4412.h>
+#include <asm/config.h>
+#include <config_fallbacks.h>
+#include <config_uncmd_spl.h>
+
+*** make
+**** 定义all
+  # 在加载config.mk文件之前先加载autoconf.mk，这样就可以使配置选项对所有顶层编译文件有效。
+  # 我们要需要定义一个all:伪目标来防止autoconf.mk.dep中的依赖目标成为默认目标
+  # 在include目录下：autoconf.mk文件中是一些和目标板相关的配置，autoconf.mk.dep则为一些列的
+  # .h头文件的包含
+  all:
+  sinclude $(obj)include/autoconf.mk.dep
+  sinclude $(obj)include/autoconf.mk
+
+  # load ARCH, BOARD, and CPU configuration
+  include $(obj)include/config.mk
+  export  ARCH CPU BOARD VENDOR SOC
+
+  CROSS_COMPILE ?=arm-none-linux-gnueabi-
+
+  # load other configuration
+  include $(TOPDIR)/config.mk
+
+  ifeq ($(wildcard $(LDSCRIPT)),) // LDSRTPT为空时执行
+    LDSCRIPT := $(TOPDIR)/board/$(BOARDDIR)/u-boot.lds
+  endif
+
+**** 编译目标
+对象start.o并引入相关 .o文件
+###########################################################
+CPUDIR=arch/$(ARCH)/cpu/$(CPU)  //在config.mk中定义
+OBJS  = $(CPUDIR)/start.o
+
+# 如果board/$(VENDOR)/common目录中有Makefile文件，
+# 则HAVE_VENDOR_COMMON_LIB为y否则为n
+
+ OBJS := $(addprefix $(obj),$(OBJS) $(RESET_OBJS-))
+
+LIBS-y += lib/libgeneric.o
+LIBS-y += lib/lzma/liblzma.o
+LIBS-y += lib/lzo/liblzo.o
+LIBS-y += lib/zlib/libz.o
+LIBS-$(CONFIG_TIZEN) += lib/tizen/libtizen.o
+LIBS-$(HAVE_VENDOR_COMMON_LIB) += board/$(VENDOR)/common/lib$(VENDOR).o
+LIBS-y += $(CPUDIR)/lib$(CPU).o
+ifdef SOC
+LIBS-y += $(CPUDIR)/$(SOC)/lib$(SOC).o
+endif
+ifeq ($(CPU),ixp)
+LIBS-y += drivers/net/npe/libnpe.o
+endif
+##############################################################
+
+LIBS-$(CONFIG_OF_EMBED) += dts/libdts.o
+LIBS-y += arch/$(ARCH)/lib/lib$(ARCH).o
+LIBS-y += fs/libfs.o \
+    fs/cbfs/libcbfs.o \
+    fs/cramfs/libcramfs.o \
+    fs/ext4/libext4fs.o \
+    fs/fat/libfat.o \
+    fs/fdos/libfdos.o \
+    fs/jffs2/libjffs2.o \
+    fs/reiserfs/libreiserfs.o \
+    fs/ubifs/libubifs.o \
+    fs/yaffs2/libyaffs2.o \
+    fs/zfs/libzfs.o
+LIBS-y += net/libnet.o
+LIBS-y += disk/libdisk.o
+LIBS-y += drivers/bios_emulator/libatibiosemu.o
+LIBS-y += drivers/block/libblock.o
+LIBS-$(CONFIG_BOOTCOUNT_LIMIT) += drivers/bootcount/libbootcount.o
+LIBS-y += drivers/dma/libdma.o
+LIBS-y += drivers/fpga/libfpga.o
+LIBS-y += drivers/gpio/libgpio.o
+LIBS-y += drivers/hwmon/libhwmon.o
+LIBS-y += drivers/i2c/libi2c.o
+LIBS-y += drivers/input/libinput.o
+LIBS-y += drivers/misc/libmisc.o
+LIBS-y += drivers/mmc/libmmc.o
+LIBS-y += drivers/mtd/libmtd.o
+LIBS-y += drivers/mtd/nand/libnand.o
+LIBS-y += drivers/mtd/onenand/libonenand.o
+LIBS-y += drivers/mtd/ubi/libubi.o
+LIBS-y += drivers/mtd/spi/libspi_flash.o
+LIBS-y += drivers/net/libnet.o
+LIBS-y += drivers/net/phy/libphy.o
+LIBS-y += drivers/pci/libpci.o
+LIBS-y += drivers/pcmcia/libpcmcia.o
+LIBS-y += drivers/power/libpower.o \
+    drivers/power/fuel_gauge/libfuel_gauge.o \
+    drivers/power/pmic/libpmic.o \
+    drivers/power/battery/libbattery.o
+LIBS-y += drivers/spi/libspi.o
+LIBS-y += drivers/dfu/libdfu.o
+################################################################
+LIBS-y += drivers/rtc/librtc.o
+LIBS-y += drivers/serial/libserial.o
+LIBS-y += drivers/sound/libsound.o
+LIBS-$(CONFIG_GENERIC_LPC_TPM) += drivers/tpm/libtpm.o
+LIBS-y += drivers/twserial/libtws.o
+LIBS-y += drivers/usb/eth/libusb_eth.o
+LIBS-y += drivers/usb/gadget/libusb_gadget.o
+LIBS-y += drivers/usb/host/libusb_host.o
+LIBS-y += drivers/usb/musb/libusb_musb.o
+LIBS-y += drivers/usb/musb-new/libusb_musb-new.o
+LIBS-y += drivers/usb/phy/libusb_phy.o
+LIBS-y += drivers/usb/ulpi/libusb_ulpi.o
+LIBS-y += drivers/video/libvideo.o
+LIBS-y += drivers/watchdog/libwatchdog.o
+LIBS-y += common/libcommon.o
+LIBS-y += lib/libfdt/libfdt.o
+LIBS-y += api/libapi.o
+LIBS-y += post/libpost.o
+LIBS-y += test/libtest.o
+################################################################
+ifeq ($(SOC),exynos)
+LIBS-y += $(CPUDIR)/s5p-common/libs5p-common.o
+endif
+################################################################
+# 给LIBS中的对象按名称的首字母进行排序(a-z)按先后顺序加上前缀$(obj)
+LIBS := $(addprefix $(obj),$(sort $(LIBS-y)))
+.PHONY : $(LIBS)
+LIBBOARD = board/$(BOARDDIR)/lib$(BOARD).o
+LIBBOARD := $(addprefix $(obj),$(LIBBOARD))
+#################################################################
+#添加gcc lib库
+ifdef USE_PRIVATE_LIBGCC
+ifeq ("$(USE_PRIVATE_LIBGCC)", "yes")
+PLATFORM_LIBGCC = $(OBJTREE)/arch/$(ARCH)/lib/libgcc.o
+else
+PLATFORM_LIBGCC = -L $(USE_PRIVATE_LIBGCC) -lgcc
+endif
+else
+# 应该只执行该句
+PLATFORM_LIBGCC := -L $(shell dirname `$(CC) $(CFLAGS) -print-libgcc-file-name`) -lgcc
+endif
+
+##################################################################
+# 执行链接脚本的时候，设置一些用于CPP特殊标志，
+# 这样才能让发布的版本做到向下兼容,例如,如果我们的目标板是smdkc100，则
+# LDPPFLAGS = -include  /源码顶层目录/include/u-boot/u-boot.lds.h
+# -DCPUDIR = arch/arm/cpu/armv7
+# LD = arm-linux-ld
+
+LDPPFLAGS += \
+    -include $(TOPDIR)/include/u-boot/u-boot.lds.h \
+    -DCPUDIR=$(CPUDIR) \
+    $(shell $(LD) --version | \
+      sed -ne 's/GNU ld version \([0-9][0-9]*\)\.\([0-9][0-9]*\).*/-DLD_MAJOR=\1 -DLD_MINOR=\2/p')
+
+# __OBJS = arch/arm/cpu/armv7/start.o
+# __LIBS = 按名称首字母排序(a-z)的各种库文件和目标对象文件
+__OBJS := $(subst $(obj),,$(OBJS))
+__LIBS := $(subst $(obj),,$(LIBS)) $(subst $(obj),,$(LIBBOARD))
+
+# 如果没有定义则CONFIG_BOARD_SIZE_LIMIT为空(一般为空)
+BOARD_SIZE_CHECK =
+###################################################################
+# Always append ALL so that arch config.mk's can add custom ones
+ALL-y += $(obj)u-boot.srec $(obj)u-boot.bin $(obj)System.map
+
+ALL-$(CONFIG_NAND_U_BOOT) += $(obj)u-boot-nand.bin
+ALL-$(CONFIG_ONENAND_U_BOOT) += $(obj)u-boot-onenand.bin
+ALL-$(CONFIG_SPL) += $(obj)spl/u-boot-spl.bin
+ALL-$(CONFIG_SPL) += $(obj)$(subst ",,$(CONFIG_SPL_TARGET))
+ALL-$(CONFIG_OF_SEPARATE) += $(obj)u-boot.dtb $(obj)u-boot-dtb.bin
+
+#####################################################################
+# 定义all为目标，生成各种镜像。
+# 其中u-boot是ELF文件，u-boot.srec是Motorola S-Record format文件，
+# System.map是U-Boot的符号表，u-boot.bin是最终烧写到开发板的二进制可
+# 执行的文件。
+
+all:		$(ALL-y) $(SUBDIR_EXAMPLES)
+
+$(obj)u-boot.dtb:	$(obj)u-boot
+        $(MAKE) -C dts binary
+        mv $(obj)dts/dt.dtb $@
+
+$(obj)u-boot-dtb.bin:	$(obj)u-boot.bin $(obj)u-boot.dtb
+        cat $^ >$@
+
+$(obj)u-boot.hex:	$(obj)u-boot
+        $(OBJCOPY) ${OBJCFLAGS} -O ihex $< $@
+
+$(obj)u-boot.srec:	$(obj)u-boot
+        $(OBJCOPY) -O srec $< $@
+
+# arm-linux-objcopy --gap-fill=0xff -O binary u-boot u-boot.bin
+# 编译命令中的“-O binary”选项指定了输出的文件为二进制文件。
+# 而“--gap-fill=0xff”   选项指定使用“0xff”填充段与段间的空闲区域。
+# 这条编译命令实现了ELF格式的U-Boot文件到BIN格式的转换。
+
+$(obj)u-boot.bin:	$(obj)u-boot
+        $(OBJCOPY) ${OBJCFLAGS} -O binary $< $@
+        $(BOARD_SIZE_CHECK)
+
+#对设备树进行的修改
+    @#./mkuboot
+    @split -b 14336 u-boot.bin bl2
+    @+make -C sdfuse_q/
+    @#cp u-boot.bin u-boot-4212.bin
+    @#cp u-boot.bin u-boot-4412.bin
+    @#./sdfuse_q/add_sign
+    @./sdfuse_q/chksum
+    @./sdfuse_q/add_padding
+    @rm  bl2a*
+    @echo
+
+$(obj)u-boot.ldr:	$(obj)u-boot
+        $(CREATE_LDR_ENV)
+        $(LDR) -T $(CONFIG_BFIN_CPU) -c $@ $< $(LDR_FLAGS)
+        $(BOARD_SIZE_CHECK)
+
+$(obj)u-boot.ldr.hex:	$(obj)u-boot.ldr
+        $(OBJCOPY) ${OBJCFLAGS} -O ihex $< $@ -I binary
+
+$(obj)u-boot.ldr.srec:	$(obj)u-boot.ldr
+        $(OBJCOPY) ${OBJCFLAGS} -O srec $< $@ -I binary
+#####################################################################
+
+ifndef CONFIG_SYS_UBOOT_START
+CONFIG_SYS_UBOOT_START := 0
+endif
+
+$(obj)u-boot.img:	$(obj)u-boot.bin
+        $(obj)tools/mkimage -A $(ARCH) -T firmware -C none \
+        -O u-boot -a $(CONFIG_SYS_TEXT_BASE) \
+        -e $(CONFIG_SYS_UBOOT_START) \
+        -n $(shell sed -n -e 's/.*U_BOOT_VERSION//p' $(VERSION_FILE) | \
+            sed -e 's/"[	 ]*$$/ for $(BOARD) board"/') \
+        -d $< $@
+
+$(obj)u-boot.imx:       $(obj)u-boot.bin
+        $(obj)tools/mkimage -n  $(CONFIG_IMX_CONFIG) -T imximage \
+        -e $(CONFIG_SYS_TEXT_BASE) -d $< $@
+
+$(obj)u-boot.kwb:       $(obj)u-boot.bin
+        $(obj)tools/mkimage -n $(CONFIG_SYS_KWD_CONFIG) -T kwbimage \
+        -a $(CONFIG_SYS_TEXT_BASE) -e $(CONFIG_SYS_TEXT_BASE) -d $< $@
+
+$(obj)u-boot.pbl:	$(obj)u-boot.bin
+        $(obj)tools/mkimage -n $(CONFIG_PBLRCW_CONFIG) \
+        -R $(CONFIG_PBLPBI_CONFIG) -T pblimage \
+        -d $< $@
+
+$(obj)u-boot.sha1:	$(obj)u-boot.bin
+        $(obj)tools/ubsha1 $(obj)u-boot.bin
+
+$(obj)u-boot.dis:	$(obj)u-boot
+        $(OBJDUMP) -d $< > $@
+
+$(obj)u-boot-with-spl.bin: $(obj)spl/u-boot-spl.bin $(obj)u-boot.bin
+        $(OBJCOPY) ${OBJCFLAGS} --pad-to=$(PAD_TO) -O binary $(obj)spl/u-boot-spl $(obj)spl/u-boot-spl-pad.bin
+        cat $(obj)spl/u-boot-spl-pad.bin $(obj)u-boot.bin > $@
+        rm $(obj)spl/u-boot-spl-pad.bin
+
+$(obj)u-boot.ubl:       $(obj)u-boot-with-spl.bin
+        $(obj)tools/mkimage -n $(UBL_CONFIG) -T ublimage \
+        -e $(CONFIG_SYS_TEXT_BASE) -d $< $(obj)u-boot.ubl
+
+$(obj)u-boot.ais:       $(obj)spl/u-boot-spl.bin $(obj)u-boot.img
+        $(obj)tools/mkimage -s -n $(if $(CONFIG_AIS_CONFIG_FILE),$(CONFIG_AIS_CONFIG_FILE),"/dev/null") \
+            -T aisimage \
+            -e $(CONFIG_SPL_TEXT_BASE) \
+            -d $(obj)spl/u-boot-spl.bin \
+            $(obj)spl/u-boot-spl.ais
+        $(OBJCOPY) ${OBJCFLAGS} -I binary \
+            --pad-to=$(CONFIG_SPL_MAX_SIZE) -O binary \
+            $(obj)spl/u-boot-spl.ais $(obj)spl/u-boot-spl-pad.ais
+        cat $(obj)spl/u-boot-spl-pad.ais $(obj)u-boot.img > \
+            $(obj)u-boot.ais
+#######################################################################
+# Specify the target for use in elftosb call
+ELFTOSB_TARGET-$(CONFIG_MX28) = imx28
+
+$(obj)u-boot.sb:       $(obj)u-boot.bin $(obj)spl/u-boot-spl.bin
+        elftosb -zf $(ELFTOSB_TARGET-y) -c $(TOPDIR)/$(CPUDIR)/$(SOC)/u-boot-$(ELFTOSB_TARGET-y).bd \
+            -o $(obj)u-boot.sb
+
+# On x600 (SPEAr600) U-Boot is appended to U-Boot SPL.
+# Both images are created using mkimage (crc etc), so that the ROM
+# bootloader can check its integrity. Padding needs to be done to the
+# SPL image (with mkimage header) and not the binary. Otherwise the resulting image
+# which is loaded/copied by the ROM bootloader to SRAM doesn't fit.
+# The resulting image containing both U-Boot images is called u-boot.spr
+$(obj)u-boot.spr:	$(obj)u-boot.img $(obj)spl/u-boot-spl.bin
+        $(obj)tools/mkimage -A $(ARCH) -T firmware -C none \
+        -a $(CONFIG_SPL_TEXT_BASE) -e $(CONFIG_SPL_TEXT_BASE) -n XLOADER \
+        -d $(obj)spl/u-boot-spl.bin $(obj)spl/u-boot-spl.img
+        tr "\000" "\377" < /dev/zero | dd ibs=1 count=$(CONFIG_SPL_PAD_TO) \
+            of=$(obj)spl/u-boot-spl-pad.img 2>/dev/null
+        dd if=$(obj)spl/u-boot-spl.img of=$(obj)spl/u-boot-spl-pad.img \
+            conv=notrunc 2>/dev/null
+        cat $(obj)spl/u-boot-spl-pad.img $(obj)u-boot.img > $@
+########################################################################
+$(obj)u-boot-img.bin: $(obj)spl/u-boot-spl.bin $(obj)u-boot.img
+        cat $(obj)spl/u-boot-spl.bin $(obj)u-boot.img > $@
+# 编译命令GEN_UBOOT，使用以下命令使用$(LDFLAGS)作为
+# 连接脚本，最终生成“u-boot”文件。
+GEN_UBOOT = \
+        UNDEF_LST=`$(OBJDUMP) -x $(LIBBOARD) $(LIBS) | \
+        sed  -n -e 's/.*\($(SYM_PREFIX)_u_boot_list_.*\)/-u\1/p'|sort|uniq`;\
+        cd $(LNDIR) && $(LD) $(LDFLAGS) $(LDFLAGS_$(@F)) \
+            $$UNDEF_LST $(__OBJS) \
+            --start-group $(__LIBS) --end-group $(PLATFORM_LIBS) \
+            -Map u-boot.map -o u-boot
+
+$(obj)u-boot:	depend \
+        $(SUBDIR_TOOLS) $(OBJS) $(LIBBOARD) $(LIBS) \
+        $(LDSCRIPT) $(obj)u-boot.lds
+
+$(OBJS):	depend
+        $(MAKE) -C $(CPUDIR) $(if $(REMOTE_BUILD),$@,$(notdir $@))
+
+$(LIBS):	depend $(SUBDIR_TOOLS)
+        $(MAKE) -C $(dir $(subst $(obj),,$@))
+
+$(LIBBOARD):	depend $(LIBS)
+        $(MAKE) -C $(dir $(subst $(obj),,$@))
+
+$(SUBDIRS):	depend
+        $(MAKE) -C $@ all
+
+$(SUBDIR_EXAMPLES): $(obj)u-boot
+
+# “$(MAKE) -C $(dir $@) $(notdir $@)”命令经过变量替换后就是
+# “make -C arch/arm/cpu/armv7/u-boot.lds”。也就是转到
+# arch/arm/cpu/armv7/目录下，执行“make u-boot.lds”命令
+
+$(LDSCRIPT):	depend
+        $(MAKE) -C $(dir $@) $(notdir $@)
+
+########################################################################
+# 以下执行结果实质上是将arch/arm/cpu/armv7/u-boot.lds经编译器
+# 简单预处理后输出到U-Boot顶层目录下的u-boot.lds文件。
+
+$(eval $(call make_u_boot_list, $(obj)include/u-boot.lst,
+$(LIBBOARD) $(LIBS)))
+
+$(obj)u-boot.lds: $(LDSCRIPT) $(obj)include/u-boot.lst
+        $(CPP) $(CPPFLAGS) $(LDPPFLAGS) -ansi -D__ASSEMBLY__ -P - <$< >$@
+
+nand_spl:	$(TIMESTAMP_FILE) $(VERSION_FILE) depend
+        $(MAKE) -C nand_spl/board/$(BOARDDIR) all
+
+ # 生成用于nand启动的二进制镜像
+$(obj)u-boot-nand.bin:  nand_spl $(obj)u-boot.bin
+        cat $(obj)nand_spl/u-boot-spl-16k.bin $(obj)u-boot.bin >
+        $(obj)u-boot-nand.bin
+
+$(obj)spl/u-boot-spl.bin:	$(SUBDIR_TOOLS) depend
+        $(MAKE) -C spl all
+
+updater:
+        $(MAKE) -C tools/updater all
+########################################################################
+# 定义依赖目标depend,dep，加载各种文件并进入各种中目录执行对应的makfile
+# 对于$(SUBDIRS) $(CPUDIR) $(LDSCRIPT_MAKEFILE_DIR)中的每个元素都
+# 进入该目录执行
+# “make _depend”，生成各个子目录的.depend文件，.depend列出每个
+# 目标文件的依赖文件。
+
+depend dep:	$(TIMESTAMP_FILE) $(VERSION_FILE) \
+        $(obj)include/autoconf.mk \
+        $(obj)include/generated/generic-asm-offsets.h \
+        $(obj)include/generated/asm-offsets.h
+        for dir in $(SUBDIRS) $(CPUDIR) $(LDSCRIPT_MAKEFILE_DIR) ; do \
+            $(MAKE) -C $$dir _depend ; done
+
+TAG_SUBDIRS = $(SUBDIRS)
+TAG_SUBDIRS += $(dir $(__LIBS))
+TAG_SUBDIRS += include
+
+FIND := find
+FINDFLAGS := -L
+
+checkstack:
+        $(CROSS_COMPILE)objdump -d $(obj)u-boot \
+            `$(FIND) $(obj) -name u-boot-spl -print` | \
+            perl $(src)tools/checkstack.pl $(ARCH)
+
+tags ctags:
+        ctags -w -o $(obj)ctags `$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) \
+                        -name '*.[chS]' -print`
+
+etags:
+        etags -a -o $(obj)etags `$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) \
+                        -name '*.[chS]' -print`
+cscope:
+        $(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) -name '*.[chS]' -print > \
+                        cscope.files
+        cscope -b -q -k
+########################################################################
+# System.map是U-Boot的符号表，它包含了U-Boot的全局变量和函数的地址信息
+# 也就是将arm-linux-nm命令查看u-boot的输出信息经过过滤和
+# 排序后输出到System.map
+# System.map表示的是地址标号到该标号表示的地址的一个映射关系。
+# System.map每一行的
+# 格式都是“addr type name”，addr是标号对应的地址值，name是标号名，
+# type表示标号的类型。
+# U-Boot的编译和运行并不一定要生成System.map，这个文件主要是提供给
+# 用户或外部程序调试时使用的。
+
+SYSTEM_MAP = \
+        $(NM) $1 | \
+        grep -v '\(compiled\)\|\(\.o$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
+        LC_ALL=C sort
+$(obj)System.map:	$(obj)u-boot
+        @$(call SYSTEM_MAP,$<) > $(obj)System.map
+
+#######################################################################
+# 检查gcc版本如果低于 0404则告知该GCC版本无法进行生
+# 成工作并说明单板配置成THUMB模式
+checkthumb:
+    @if test $(call cc-version) -lt 0404; then \
+        echo -n '*** Your GCC does not produce working '; \
+        echo 'binaries in THUMB mode.'; \
+        echo '*** Your board is configured for THUMB mode.'; \
+        false; \
+    fi
+
+# GCC 3.x is reported to have problems generating the type of relocation
+# that U-Boot wants.
+# See http://lists.denx.de/pipermail/u-boot/2012-September/135156.html
+checkgcc4:
+    @if test $(call cc-version) -lt 0400; then \
+        echo -n '*** Your GCC is too old, please upgrade to GCC 4.x or newer'; \
+        false; \
+    fi
+
+########################################################################
+# 自动生成autoconf.mk文件(所有makefile文件都应该包含该文件)，
+# 实际上这个目标生成两个文件  autoconf.mk和autoconf.mk.dep。
+# 只有顶层的makefile直接包含 autoconf.mk.dep文件以生成autoconf.mk文件。
+$(obj)include/autoconf.mk.dep: $(obj)include/config.h include/common.h
+    @$(XECHO) Generating $@ ; \
+    set -e ; \
+    : Generate the dependancies ; \
+    $(CC) -x c -DDO_DEPS_ONLY -M $(CFLAGS) $(CPPFLAGS) \
+        -MQ $(obj)include/autoconf.mk include/common.h > $@
+
+$(obj)include/autoconf.mk: $(obj)include/config.h
+    @$(XECHO) Generating $@ ; \
+    set -e ; \
+    : Extract the config macros ; \
+    $(CPP) $(CFLAGS) -DDO_DEPS_ONLY -dM include/common.h | \
+        sed -n -f tools/scripts/define2mk.sed > $@.tmp && \
+    mv $@.tmp $@
+
+$(obj)include/generated/generic-asm-offsets.h:	$(obj)include/autoconf.mk.dep \
+    $(obj)lib/asm-offsets.s
+    @$(XECHO) Generating $@
+    tools/scripts/make-asm-offsets $(obj)lib/asm-offsets.s $@
+
+$(obj)lib/asm-offsets.s:	$(obj)include/autoconf.mk.dep \
+    $(src)lib/asm-offsets.c
+    @mkdir -p $(obj)lib
+    $(CC) -DDO_DEPS_ONLY \
+        $(CFLAGS) $(CFLAGS_$(BCURDIR)/$(@F)) $(CFLAGS_$(BCURDIR)) \
+        -o $@ $(src)lib/asm-offsets.c -c -S
+
+$(obj)include/generated/asm-offsets.h:	$(obj)include/autoconf.mk.dep \
+    $(obj)$(CPUDIR)/$(SOC)/asm-offsets.s
+    @$(XECHO) Generating $@
+    tools/scripts/make-asm-offsets $(obj)$(CPUDIR)/$(SOC)/asm-offsets.s $@
+
+$(obj)$(CPUDIR)/$(SOC)/asm-offsets.s:	$(obj)include/autoconf.mk.dep
+    @mkdir -p $(obj)$(CPUDIR)/$(SOC)
+    if [ -f $(src)$(CPUDIR)/$(SOC)/asm-offsets.c ];then \
+        $(CC) -DDO_DEPS_ONLY \
+        $(CFLAGS) $(CFLAGS_$(BCURDIR)/$(@F)) $(CFLAGS_$(BCURDIR)) \
+            -o $@ $(src)$(CPUDIR)/$(SOC)/asm-offsets.c -c -S; \
+    else \
+        touch $@; \
+    fi
+
+######################################################################
+# ifeq ($(obj)include/config.mk,$(wildcard $(obj)include/config.mk))
+# 下面的else分支和文件前面的上句对应，也就是include目录下
+# 不存在config.mk文件的时候提示错误信息:
+# System not configured - see README
+# make ***[all] error 1
+else	# !config.mk
+all $(obj)u-boot.hex $(obj)u-boot.srec $(obj)u-boot.bin \
+$(obj)u-boot.img $(obj)u-boot.dis $(obj)u-boot \
+$(filter-out tools,$(SUBDIRS)) \
+updater depend dep tags ctags etags cscope $(obj)System.map:
+    @echo "System not configured - see README" >&2
+    @ exit 1
+
+tools: $(VERSION_FILE) $(TIMESTAMP_FILE)
+    $(MAKE) -C $@ all
+endif	# config.mk
+
+######################################################################
+# TIMESTAMP_FILE = $(obj)include/generated/timestamp_autogenerated.h
+# VERSION_FILE = $(obj)include/generated/version_autogenerated.h
+# $(VERSION_FILE):生成版本信息文件version_autogenerated.h
+# $(TIMESTAMP_FILE):生成时间戳信息文件timestamp_autogenerated.h
+$(VERSION_FILE):
+        @mkdir -p $(dir $(VERSION_FILE))
+        @( localvers='$(shell $(TOPDIR)/tools/setlocalversion $(TOPDIR))' ; \
+           printf '#define PLAIN_VERSION "%s%s"\n' \
+            "$(U_BOOT_VERSION)" "$${localvers}" ; \
+           printf '#define U_BOOT_VERSION "U-Boot %s%s"\n' \
+            "$(U_BOOT_VERSION)" "$${localvers}" ; \
+        ) > $@.tmp
+        @( printf '#define CC_VERSION_STRING "%s"\n' \
+         '$(shell $(CC) --version | head -n 1)' )>>  $@.tmp
+        @( printf '#define LD_VERSION_STRING "%s"\n' \
+         '$(shell $(LD) -v | head -n 1)' )>>  $@.tmp
+        @cmp -s $@ $@.tmp && rm -f $@.tmp || mv -f $@.tmp $@
+
+$(TIMESTAMP_FILE):
+        @mkdir -p $(dir $(TIMESTAMP_FILE))
+        @LC_ALL=C date +'#define U_BOOT_DATE "%b %d %C%y"' > $@.tmp
+        @LC_ALL=C date +'#define U_BOOT_TIME "%T"' >> $@.tmp
+        @cmp -s $@ $@.tmp && rm -f $@.tmp || mv -f $@.tmp $@
+
+# 执行该目标时，进入tools目录编译easylogo env gdb这些工具
+
+ easylogo env gdb:
+    $(MAKE) -C tools/$@ all MTD_VERSION=${MTD_VERSION}
+gdbtools: gdb
+
+xmldocs pdfdocs psdocs htmldocs mandocs: tools/kernel-doc/docproc
+    $(MAKE) U_BOOT_VERSION=$(U_BOOT_VERSION) -C doc/DocBook/ $@
+
+# 编译所有工具
+tools-all: easylogo env gdb $(VERSION_FILE) $(TIMESTAMP_FILE)
+    $(MAKE) -C tools HOST_TOOLS_ALL=y
+
+#改变logo信息
+.PHONY : CHANGELOG
+CHANGELOG:
+    git log --no-merges U-Boot-1_1_5.. | \
+    unexpand -a | sed -e 's/\s\s*$$//' > $@
+
+include/license.h: tools/bin2header COPYING
+    cat COPYING | gzip -9 -c | ./tools/bin2header
+    license_gzip > include/license.h
+#####################################################################
+# 删除各种配置文件
+unconfig:
+    @rm -f $(obj)include/config.h $(obj)include/config.mk \
+        $(obj)board/*/config.tmp $(obj)board/*/*/config.tmp \
+        $(obj)include/autoconf.mk $(obj)include/autoconf.mk.dep
+
+#####################################################################
+# 配置, # 然后@$(MKCONFIG) -A $(@:_config=),
+# @$(MKCONFIG)就是执行mkconfig脚本，传入的参数
+# 为 -A和$(@:_config=)，就是把@中的"_config"替换为空
+# $@ = %_config = smdkc100_config
+
+%_config::	unconfig
+    @$(MKCONFIG) -A $(@:_config=)
+
+sinclude $(obj).boards.depend
+$(obj).boards.depend:	boards.cfg
+    @awk '(NF && $$1 !~ /^#/) \
+{ print $$1 ": " $$1 "_config; $$(MAKE)" }' $< > $@
+
+#
+# Functions to generate common board directory names
+# $1为空，所以lcname和ucname均为空,sed中-e参数表示直接在命令
+# 行上进行sed的操作编辑。
+# 's/.∗_config/\L\1/'意思是搜索匹配xxxxx_config/L1的字符串
+# 's/.∗_config/\U\1/'同理。
+lcname	= $(shell echo $(1) | sed -e 's/\(.*\)_config/\L\1/')
+ucname	= $(shell echo $(1) | sed -e 's/\(.*\)_config/\U\1/')
+#####################################################################
+# clean伪目标，删除编译生成的文件，
+# 但不删除一些库文件，避免再次编译以节省时间
+clean:
+    @rm -f $(obj)examples/standalone/82559_eeprom			  \
+           $(obj)examples/standalone/atmel_df_pow2			  \
+           $(obj)examples/standalone/eepro100_eeprom		  \
+           $(obj)examples/standalone/hello_world			  \
+           $(obj)examples/standalone/interrupt			  \
+           $(obj)examples/standalone/mem_to_mem_idma2intr		  \
+           $(obj)examples/standalone/sched				  \
+           $(obj)examples/standalone/smc911{11,x}_eeprom		  \
+           $(obj)examples/standalone/test_burst			  \
+           $(obj)examples/standalone/timer
+    @rm -f $(obj)examples/api/demo{,.bin}
+    @rm -f $(obj)tools/bmp_logo	   $(obj)tools/easylogo/easylogo  \
+           $(obj)tools/env/{fw_printenv,fw_setenv}			  \
+           $(obj)tools/envcrc					  \
+           $(obj)tools/gdb/{astest,gdbcont,gdbsend}			  \
+           $(obj)tools/gen_eth_addr    $(obj)tools/img2srec		  \
+           $(obj)tools/mk{env,}image   $(obj)tools/mpc86x_clk	  \
+           $(obj)tools/mk{smdk5250,}spl				  \
+           $(obj)tools/mxsboot					  \
+           $(obj)tools/ncb		   $(obj)tools/ubsha1		  \
+           $(obj)tools/kernel-doc/docproc
+    @rm -f $(obj)board/cray/L1/{bootscript.c,bootscript.image}	  \
+           $(obj)board/matrix_vision/*/bootscript.img		  \
+           $(obj)board/voiceblue/eeprom 				  \
+           $(obj)u-boot.lds						  \
+           $(obj)include/u-boot.lst			  		  \
+           $(obj)arch/blackfin/cpu/bootrom-asm-offsets.[chs]	  \
+           $(obj)arch/blackfin/cpu/init.{lds,elf}
+    @rm -f $(obj)include/bmp_logo.h
+    @rm -f $(obj)include/bmp_logo_data.h
+    @rm -f $(obj)lib/asm-offsets.s
+    @rm -f $(obj)include/generated/asm-offsets.h
+    @rm -f $(obj)$(CPUDIR)/$(SOC)/asm-offsets.s
+    @rm -f $(TIMESTAMP_FILE) $(VERSION_FILE)
+    @$(MAKE) -s -C doc/DocBook/ cleandocs
+    @find $(OBJTREE) -type f \
+        \( -name 'core' -o -name '*.bak' -o -name '*~' -o -name '*.su' \
+        -o -name '*.o'	-o -name '*.a' -o -name '*.exe'	\) \
+         -print | xargs rm -f |
+
+
+# tidy伪目标:删除所有不需要的测试u-boot的文件
+tidy:	clean
+    @find $(OBJTREE) -type f \( -name '*.depend*' \) -print | xargs rm -f
+# clobber伪目标:删除包括镜像在内的编译文件
+clobber:	tidy
+    @find $(OBJTREE) -type f \( -name '*.srec' \
+        -o -name '*.bin' -o -name u-boot.img \) \
+        -print0 | xargs -0 rm -f
+    @rm -f $(OBJS) $(obj)*.bak $(obj)ctags $(obj)etags $(obj)TAGS \
+        $(obj)cscope.* $(obj)*.*~
+    @rm -f $(obj)u-boot $(obj)u-boot.map $(obj)u-boot.hex $(ALL-y)
+    @rm -f $(obj)u-boot.kwb
+    @rm -f $(obj)u-boot.pbl
+    @rm -f $(obj)u-boot.imx
+    @rm -f $(obj)u-boot.ubl
+    @rm -f $(obj)u-boot.ais
+    @rm -f $(obj)u-boot.dtb
+    @rm -f $(obj)u-boot.sb
+    @rm -f $(obj)u-boot.spr
+    @rm -f $(obj)nand_spl/{u-boot.{lds,lst},System.map}
+    @rm -f $(obj)nand_spl/{u-boot-nand_spl.lds,u-boot-spl,u-boot-spl.map}
+    @rm -f $(obj)spl/{u-boot-spl,u-boot-spl.bin,u-boot-spl.map}
+    @rm -f $(obj)spl/{u-boot-spl.lds,u-boot.lst}
+    @rm -f $(obj)MLO MLO.byteswap
+    @rm -f $(obj)SPL
+    @rm -f $(obj)tools/xway-swap-bytes
+    @rm -f $(obj)arch/powerpc/cpu/mpc824x/bedbug_603e.c
+    @rm -f $(obj)arch/powerpc/cpu/mpc83xx/ddr-gen?.c
+    @rm -fr $(obj)include/asm/proc $(obj)include/asm/arch $(obj)include/asm
+    @rm -fr $(obj)include/generated
+    @[ ! -d $(obj)nand_spl ] || find $(obj)nand_spl -name "*" -type l -print | xargs rm -f
+    @rm -f $(obj)dts/*.tmp
+    @rm -f $(obj)spl/u-boot-spl{,-pad}.ais
+
+# distclean伪目标:删除所有编译生成的文件和配置文件
+mrproper \
+distclean:	clobber unconfig
+ifneq ($(OBJTREE),$(SRCTREE))
+    rm -rf $(obj)*
+endif
+
+# backup:备份，basename命令作用是从文件名中剥离目录和后缀，TOPDIR是u-boot源码顶层目录
+# 这样剥离了目录和后缀后，F就是uboot源码包的名称。cd ..返回上级目录，也就是-boot源码顶层目录的上一层目录
+# 对于gtar，我找不到这个命令，搜索了一下也没发现这是啥，我把它换成tar便可正常备份!!!!!!!!
+# --force-local参数意思是强制使用本地存档，即使存在克隆。z:表示用gzip对存档压缩或者解压。
+# c:建立新的压缩文件，v:详细显示处理的文件，f:指定文件名,f参数之后一定要立即接文件名，不能
+# 再加别的参数。
+# LC_ALL=C设计本地环境为C，即POXSI，这么做是为了去除所有本地化设置，让命令能正确执行
+# date:显示日期的命令，%Y-%m-%d-%T，也就是年月日时分秒了
+# 所以最后得到备份包的名称是:uboot源码包的名称-年-月-日-时分秒.tar.gz
+
+backup:
+    F=`basename $(TOPDIR)` ; cd .. ; \
+    gtar --force-local -zcvf `LC_ALL=C \
+    date "+$$F-%Y-%m-%d-%T.tar.gz"` $$F
+* 第四天
+** 内核配置和使用
+【1】内核：“内核”指的是一个提供硬件抽象层、磁盘及文件系统控制、多任务等功能的系统软件。一个内核不是一套完整的操作系统。
+     linux系统：是一个集 linux 内核、工具集、各种库、桌面管理器、应用程序等一体的一个发布包 (发行版)
+
+【2】目前linux系统采用 A.B.C.D 的版本号管理方式
+     A 表示linux的主版本号
+     B 表示linux的次版本号，B 为偶数表示稳定版本，奇数表示开发中的版本
+     C 表示linux的发行版本号
+     D 表示更新版本号
+     2.4
+     2.6
+     3.x 支持设备树
+
+     3.14
+
+【3】Linux内核子系统
+进程管理
+内存管理
+文件系统
+网络协议
+设备管理
+
+【4】内核使用
+（1）清除命令：make mrproper
+（2）默认配置：
+     make exynos_defconfig
+     本质：cp  arch/arm/configs/exynos_defconfig  .config
+（3）特定的配置
+     make menuconfig
+（4）编译
+     make zImage    --- 静态编译内核
+     make uImage    --- 静态编译内核  ----  arch/arm/boot目录下生成uImage
+     make modules   --- 编译模块      ----  在makefile的同级目录下生成.ko文件
+     make  dtbs     --- 设备树文件    ----  arch/arm/boot/dtb/目录下生成 exynos4412-fs4412.dtb文件
+
+【5】make menuconfig的使用
+（0）寻求帮助
+     1-- 看抬头，有说明
+     2-- ？
+     3-- 查询
+（1）菜单
+     后面有--->都是子菜单
+     进入菜单：enter
+     退出菜单：esc、esc
+（2）选项是否编译
+     y --  *   --  编译进内核镜像
+     n --  空  --  不编译
+     m --  M   --  编译成模块生成.ko  只有<>可以编译成模块[]没有
+
+
+【6】内核中存在该驱动的移植
+（1）添加设备信息
+     通过设备树文件。
+（2）通过make menuconfig 配置驱动程序
+（3）编译
+     make uImage
+     make dtbs
+
+【7】内核中没有该驱动
+
+（1）写驱动，放在特定的目录下
+（2）修改同级目录下的Kconfig文件
+（3）修改同级目录下的Makefile文件
+（4）配置
+      make menuconfig
+      *  --- 静态编译
+      M  --- 动态编译
+
+（5）添加设备信息（如果驱动中没有包含设备信息）
+     设备树的编译 make dtbs
+
+（6）驱动编译
+     1-- 静态编译  make uImage    -- 驱动已经包含uImage镜像中，当uImage启动时，驱动也启动
+     2-- 动态编译  make modules   -- 驱动作为单独模块(.ko)，需要在内核启动后，加载进内核 sudo insmod  xxx.ko
+
+
+
+（5）写应用程序测试
+    1-- 写应用程序
+    2-- 编译应用程序 注意：使用交叉开发工具链 arm-linux-gcc
+    3-- 拷贝到/source/rootfs
+    5-- 创建设备节点
+    sudo mknod /dev/led c 500 0
+    4-- 在板子的linux系统下可以看到，并执行
+* 第五天
+【1】调试
+（1）printk
+和printf很相似，不一样1-- 级别 2-- 不能显示浮点类型。
+
+printf("led init \n");       --- printk("led init \n");
+printf("sum = %d\n",sum);    --- printk("sum =%d\n",sum);
+
+1-- 级别
+#define KERN_EMERG        "<0>"   /* system is unusable           */
+#define   KERN_ALERT      "<1>” /* action must be taken immediately */
+#define KERN_CRIT         "<2>"   /* critical conditions          */
+#define KERN_ERR          "<3>"   /* error conditions         */
+#define KERN_WARNING      "<4>"   /* warning conditions           */
+#define   KERN_NOTICE     "<5>"   /* normal but significant condition */
+#define KERN_INFO         "<6>"   /* informational            */
+#define KERN_DEBUG        "<7>"   /* debug-level messages
+
+printk( KERN_WARNING “WARNING\n”);
+printk( KERN_DEBUG “\n DEBUG Level \n” );
+
+查看平台级别和信息默认级别，修改
+通过proc在运行时查看和修改日志级别
+cat  /proc/sys/kernel/printk
+4 4 1 7
+echo “7 4 1 7” >/proc/sys/kernel/printk
+cat /proc/sys/kernel/printk
+7 4 1 7
+
+2-- 不能答应浮点类型。
+
+【2】应用层代码的调试
+（1）代码测试
+    strace   -- 当前程序系统调用的查看  strace ./a.out
+    ltrace   -- 当前程序库函数的馋看    ltrace ./a.out
+（2）性能测试
+     1-- 系统性能测试 gprof 执行时间
+      编译要加 -g -pg.生成a.out
+          a.out    产生一个文件 gmon.out
+          gprof a.out  gmon.out >test.log
+
+
+     2-- 代码覆盖率测试 gcov 空间
+
+
+=======================================================
+【1】根文件系统：linux启动后挂载的第一个文件系统，挂载到/
+【2】文件系统层次结构标准 【Filesystem Hierarchy Standard (FHS)】
+FHS标准定义了如下的内容。
+　1. 文件系统中每个区域的用途
+   2. 所需要的最小构成的文件和目录
+提高软件的可移植性
+
+【3】必须有的目录
+（1）bin  sbin --- shell命令
+（2）dev       --- 设备文件
+（3）etc       --- 配置
+（4）lib       --- 库
+（5）proc      --- 内核进程通信的
+（6）sys       --- 虚拟文件系统 sysfs 挂载点
+
+【4】bin sbin --- shell命令
+busybox生成
+
+【5】dev
+mdev
+
+【6】etc（2个文件2个脚本）
+1-- inittab      初始化的事件
+2-- init.d/rcS   在inittab文件里的sysint事件，系统初始化的脚本
+3-- fstab        在rcS初始化脚本中，调用mount -a命令自动挂载文件系统的说明文件。
+4-- profile      shell环境的初始化PATH
+
+
+【7】lib
+交叉编译工具

@@ -1,0 +1,131 @@
+
+/*led实验*/
+@ 1.分析电路图，得出LED的控制逻辑   -  输出高低电平
+@ 2.分析电路图，找出外围硬件电路与主控引脚的连接关系GPX2_7
+@ 3.将引脚设置成输出功能  GPX2CON
+@ 4.控制引脚输出想要的电平  GPX2DAT
+
+CFG:
+	@将GPX2_7引脚设置成输出功能
+	ldr r0, =0x11000c40
+	ldr r1, =0x10000000
+	str r1, [r0]
+
+MAIN:
+	bl LEDON
+	bl DELAY
+	bl LEDOFF
+	bl DELAY
+	b MAIN
+
+LEDOFF:
+	ldr r0, =0x11000c44
+	ldr r1, =0
+	str r1, [r0]
+	mov pc, lr
+
+LEDON:
+	ldr r0, =0x11000c44
+	ldr r1, =0x80
+	str r1, [r0]
+	mov pc, lr
+
+DELAY:
+	ldr r0, = 100000000
+T:
+	sub r0, r0, #1
+	cmp r0, #0
+	bne T
+	mov pc, lr
+
+#if 0
+void delay(unsigned int Time)
+{
+	unsigned int i,j;
+	for(i=0;i<Time;i++)
+		for(j=0;j<3000;j++);
+}
+
+int main()
+{
+	unsigned int * GPX2CON = (unsigned int *)0x11000c40;
+	unsigned int * GPX2DAT = (unsigned int *)0x11000c44;
+	*GPX2CON = 0x10000000;  //将GPX2_7设置成输出功能
+
+	while(1)
+	{
+		//将GPX2_7输出高电平
+		*GPX2DAT = 0x80;
+		delay(500);
+		//将GPX2_7输出低电平
+		*GPX2DAT = 0x0;
+		delay(500);
+	}
+	return 0;
+}
+#endif
+
+#if 0
+void delay(unsigned int Time)
+{
+	unsigned int i,j;
+	for(i=0;i<Time;i++)
+		for(j=0;j<3000;j++);
+}
+
+int main()
+{
+	#define GPX2CON (*(unsigned int *)0x11000c40)
+	#define GPX2DAT (*(unsigned int *)0x11000c44)
+
+	GPX2CON = 0x10000000;  //将GPX2_7设置成输出功能
+
+	while(1)
+	{
+		//将GPX2_7输出高电平
+		GPX2DAT = 0x80;
+		delay(500);
+		//将GPX2_7输出低电平
+		GPX2DAT = 0x0;
+		delay(500);
+	}
+	return 0;
+}
+#endif
+
+#include"exynos_4412.h"
+
+void delay(unsigned int Time)
+{
+	unsigned int i,j;
+	for(i=0;i<Time;i++)
+		for(j=0;j<3000;j++);
+}
+
+/*
+typedef struct
+{
+	unsigned int CON;
+	unsigned int DAT;
+	unsigned int PUD;
+	unsigned int DRV;
+}gpx2;
+#define GPX2 (*(volatile gpx2 *)0x11000c40)
+*/
+int main()
+{
+	GPX2.CON = 0x10000000;
+
+	while(1)
+	{
+		//将GPX2_7输出高电平
+		GPX2.DAT = 0x80;
+		delay(500);
+		//将GPX2_7输出低电平
+		GPX2.DAT = 0x0;
+		delay(500);
+	}
+	return 0;
+}
+
+

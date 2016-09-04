@@ -1,0 +1,21 @@
+（1）把ctags_set文件夹拷贝到Ubuntu里
+（2）cd ctags_set
+（3）sudo  chmod 774 ctags_set.sh
+（4）sudo ./ctags_set.sh
+（5）验证：在~目录下 ， vi -t sockaddr_in
+
+生成tags 文件 ：在相应目录下 ctags -R
+在代码中追变量： ctrl + ]
+返回代码中    ： ctrl + t
+
+==================================
+在内核源码目录下 执行
+make tags
+
+========================
+cd ~
+sudo vim .vimrc
+在.vimrc 最后添加
+
+set tags+=内核源码绝对路径/tags
+例如set tags+=/home/qin/linux-2.6.35-farsight/tags
