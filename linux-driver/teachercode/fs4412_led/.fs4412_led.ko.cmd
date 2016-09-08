@@ -1,0 +1,1 @@
+cmd_/home/david/2016-09-08-driver/fs4412_led/fs4412_led.ko := arm-none-linux-gnueabi-ld -EL -r  -T /home/david/linux-3.14-fs4412/scripts/module-common.lds --build-id  -o /home/david/2016-09-08-driver/fs4412_led/fs4412_led.ko /home/david/2016-09-08-driver/fs4412_led/fs4412_led.o /home/david/2016-09-08-driver/fs4412_led/fs4412_led.mod.o

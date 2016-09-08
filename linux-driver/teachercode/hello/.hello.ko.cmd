@@ -1,0 +1,1 @@
+cmd_/home/linux/2016-09-06-driver/hello/hello.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-3.2.0-24-generic/scripts/module-common.lds --build-id  -o /home/linux/2016-09-06-driver/hello/hello.ko /home/linux/2016-09-06-driver/hello/hello.o /home/linux/2016-09-06-driver/hello/hello.mod.o

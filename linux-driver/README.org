@@ -1,0 +1,704 @@
+* 第一天
+** 模块的基本组成
+*** 必须部分
+    1、许可证申明
+        MODULE_LICENSE("GPL");
+        原因：1、防止内核参生抱怨
+              2、在写代码的过程中为了能够调用内核提供的某些接口函数
+
+    2、初始化函数
+        init_module----insmod 只认init_module
+        做一些初始化工作---什么初始化？
+
+        module_init
+
+        注意：我们写的初始化函数必须是一个返回值为int参数为void的函数
+              内核中对于C语言编程的要求比较严格
+              函数名在内核中必须具备唯一性
+
+    3、卸载函数
+        cleanup_module---rmmod只认cleanup_module
+        做与init_module相反的工作
+
+        module_exit
+
+        注意：我们写的卸载函数必须是一个返回值为void参数为void的函数
+              内核中对于C语言编程的要求比较严格
+
+*** 可选部分
+    4、描述类信息
+    5、模块传参---指定给驱动中的某个变量传参
+        1、定义变量
+        2、声明某个变量可以接受外部传参
+            module_param(变量名，变量类型，变量读写权限)
+
+            数组声明
+            module_param_array(变量名，变量类型，整形指针(为了传递参数中数组元素的个数), 变量读写权限)
+
+            注意：变量读写权限如果不为0，则在sys目录下会生成变量同名文件，我们可以直接对文件进行相关操作
+        3、参数描述
+            MODULE_PARM_DESC(变量名，描述信息)
+
+        4、在insmod时传参
+
+        例：
+            int i = 10；
+            module_param(i，int，？)；
+            MODULE_PARM_DESC(i，“this is interger”)；
+
+            insmod hello.ko i=15
+
+    6、符号声明
+        EXPORT_SYMBOL(符号名);
+        EXPORT_SYMBOL_GPL(符号名);
+
+
+
+
+补充：
+    module_init(func);
+
+    MODULE  当make modules的时候被定义
+
+    #ifndef MODULE
+        当模块内建与uImage中时，module_init负责定义一个函数指针指向初始化函数，并将函数指针链接到initcall段，系统启动时统一被调用
+
+
+
+    #else
+        当模块编译成KO的时候：
+            检测初始化函数是否符合要求---初始化函数必须是一个返回值为int参数为void的函数
+            定义别名将初始化函数与init_module关联
+
+    #endif
+
+
+    module_exit(func);
+
+    MODULE  当make modules的时候被定义
+
+    #ifndef MODULE
+        无意义
+    #else
+        当模块编译成KO的时候：
+            检测卸载函数是否符合要求---卸载函数必须是一个返回值为void参数为void的函数
+            定义别名将卸载函数与cleanup_module关联
+
+    #endif
+
+
+编译:
+    1、按系统移植led移植方式去编译
+    2、外部模块编译
+        make -C <path-to-kernel-src> M=$PWD
+
+        模块所在目录下须有Makefile
+            内容为 obj-m := hello.o
+
+        构建外部模块时需要依赖一个内核源码树：
+            内核源码树是一个配置好的编译过的源码
+                配置好：内核源码必须配置为针对指定平台
+                编译好：模块编译会使用一些编译过程中生成的内容
+
+
+测试：
+    insmod 加载模块
+        insmod 模块的文件名
+
+    dmesg 查看内核打印信息
+    dmesg -c 清空内核打印信息
+
+    lsmod 查看系统当前所有模块信息
+
+    rmmod 卸载模块
+        rmmod 模块名
+            注意：必须是模块名
+                  根文件系统中“/lib/modules/`uname -r`”必须存在
+
+    modinfo 查看模块信息
+    modprobe 功能与insmod类似，但强于insmod，但需要一些特定文件的支持
+
+** linux 字符设备驱动
+*** 设备号
+    dev_t 32bit的数
+    高12bit(主设备号) | 低20bit(次设备号)
+
+    一般情况主设备号用来区分设备类型，次设备号区分同类型设备
+        dev_t devno = MKDEV(major， minor);
+        major = MAJOR(devno);
+        minor = MINOR(dev_t)
+
+    cat /proc/devices 查看当前系统中主设备号的使用情况
+    申请设备号：
+        静态申请设备号: 向操作系统申请某个特定的设备号
+
+            int register_chrdev_region(dev_t from, int count, char *name)
+            from: 要申请的第一设备号
+            count：申请设备号的个数
+            name：驱动或设备的名称----其实无所谓
+
+            返回值：0 成功
+                    -errno 失败
+
+
+
+        动态申请设备号：由操作系统动态分配
+            alloc_chrdev_region
+
+    释放设备号：
+        void unregister_chrdev_region(dev_t from, int count)
+
+
+    注意：错误码定义在：include/uapi/asm-generic/errno-base.h
+
+*** 设备的注册
+    定义cdev
+    初始化cdev----cdev_init
+    注册cdev----cdev_add
+    注销cdev----cdev_del
+** 随堂笔记
+符号:可以被寻址的标识
+字符设备:字节流传输,绝大多数不允许随机范围
+块设备:数据块   ,允许随机访问
+网络设备
+| 类class | class为应用程序提供统一的即可    |
+| diver   |                                 |
+| v4L     | 为驱动程序访问硬件提供统一的接口 |
+* 第二天
+** file_operations的实现
+    int *open(struct inode *, struct file*)
+    +	使用计数，检查错误
+    +	申请资源
+    +	识别次设备，更新file->private_data---主要针对多设备驱动
+    +	如果正常打开应该返回0， 如果打开失败返回-errno
+
+    int *release(struct inode *, struct file *);
+
+    与open相反
+
+
+    补充：container_of 通过结构体成员的地址确定结构体的地址
+
+    出现错误：
+        open: No such file or directory ----- 没有mknod  mknod的文件名与实际使用不一致
+
+        open: Permission denied	---- 没有打开设备的权限
+
+        open: No such device or address ---- 设备没有注册   使用的设备文件设备号与实际设备不一致
+
+
+    ssize_t (*write)(struct file* file,const char *buf,size_t count,loff_t*loff)
+
+    1、count合法性验证
+
+    2、copy_from_user(to, from, size)
+
+        注意；返回值 成功返回0 失败返回正数
+
+              这个操作是一个可能引起睡眠的操作---阻塞
+
+        2.1、验证buf是否能够被访问---是否合法---access_ok
+
+        2.2、完成数据拷贝----memcpy
+
+    3、返回实际写入数据大小
+
+    ssize_t (*read)(struct file* file,char *buf,size_t count,loff_t*loff)
+
+    1、count合法性验证
+
+    2、copy_to_user(to, from, size)
+
+        注意；返回值 成功返回0 失败返回正数
+
+              这个操作是一个可能引起睡眠的操作---阻塞
+
+        2.1、验证buf是否能够被访问---是否合法---access_ok
+
+        2.2、完成数据拷贝----memcpy
+
+    3、返回实际读取数据大小
+
+    应用层
+
+    int ioctl(int fd, int cmd, void *arg)
+
+    驱动
+
+    定义命令
+        2bit dir | 14bit size | 8bit type | 8bit nr
+
+        dir： 当命令需要传参数时，这个字段表示参数的传递方向
+
+        size：需要传递数据的大小
+
+        type：表示这是谁的命令
+
+        nr：  表示这是设备的第几个命令
+
+
+
+        #define HELLO_CMD1 dir<<30 | size << 16 | type << 8 | nr
+
+        _IO(type, nr)
+
+        _IOR(type, nr, 传递参数的类型)
+
+        _IOW(type, nr, 传递参数的类型)
+
+        _IOWR(type, nr, 传递参数的类型)
+
+        _IOC_TYPE
+
+        _IOC_NR
+
+        _IOC_DIR
+
+        _IOC_SIZE
+
+        #define HELLO_CMD2 _IO('H', 1)
+
+        #define HELLO_CMD3 _IOR('H', 1,struct A) /*需要传递一个结构体，结构体为struct A， 结构体大小为20byte*/
+
+    实现unlocked_ioctl
+
+        解析命令，按照不同的命令定义完成不同的操作
+** 内存申请
+
+    unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order);
+    mask:?
+    order: 要申请的内存的大小(2order次方页) order的范围一般是0~10 所以分配到的内存大小是4K ~ 4M
+
+    返回值：分配到的内存的首地址
+
+    注意：这个函数分配到的内存在物理上是连续的
+
+    void free_page(unsigned long address, unsigned int order);
+
+
+    void *kmalloc(size_t size, gfp_t flag)
+    void *kzalloc(size_t size, gfp_t flag)
+    size: 范围一般是32byte到128K
+    flags：同__get_free_pages的mask，常用的值有GFP_KERNEL  这个操作是一个可能阻塞的操作
+                                               GPF_ATOMIC  这个操作会立即返回，不过成功与否
+    返回值：执行内存的指针
+
+    注意：这个函数分配到的内存在物理上是连续的
+    kfree(const void *)，要释放内存的指针
+
+
+    void *vmalloc(size_t size);
+    vfree(void *);
+
+    寄存器的动态映射：
+
+    void __iomem *ioremap(phys_addr_t offset, unsigned long size)
+        offset: 要映射的物理地址首地址
+        size：要映射连续空间大小
+
+        返回值：指向映射后虚拟地址的指针
+
+    void iounmap(void __iomem *addr)
+
+
+    readl/readw/readb
+    writel/writew/writeb
+
+    unsigned int readl(void __iomem *addr);
+    write(unsigned int data, void __iomem *addr);
+
+** 写LED驱动
+    1、看原理图---了解LED所使用的资源
+    2、芯片手册---了解使用的硬件资源所对应的寄存器，及寄存器中每一位的含义
+    3、写驱动
+        加载函数
+            申请设备号
+            注册设备
+            寄存器的映射
+            寄存器的初始化
+        卸载函数
+            注销设备
+            释放设备号
+        许可证声明
+
+        实现file_operations
+            open
+            release
+            ioctl
+
+            write
+
+
+如果申请资源会影响系统性能,就放在open里.影响不大的也可以放在加载
+函数里.
+* 字符设备分析
+#+BEGIN_SRC C
+
+  struct kobj_map {
+      struct probe {
+          struct probe *next;
+          dev_t dev;
+          unsigned long range;  /* 设备号的范围 */
+          struct module *owner; //一般初始化为：THIS_MODULE
+          kobj_probe_t *get;
+          int (*lock)(dev_t, void *);
+          void *data;
+      } *probes[255];
+      struct mutex *lock;
+  };
+
+  struct inode {
+       //inode的权限
+      umode_t         i_mode;
+
+      unsigned short      i_opflags;
+      //inode拥有者的id
+      kuid_t          i_uid;
+      //inode所属组的组id
+      kgid_t          i_gid;
+
+      unsigned int        i_flags;
+
+  #ifdef CONFIG_FS_POSIX_ACL
+      struct posix_acl    *i_acl;
+      struct posix_acl    *i_default_acl;
+  #endif
+
+      const struct inode_operations   *i_op;
+      //相关的超级块
+      struct super_block  *i_sb;
+      //相关的地址映射
+      struct address_space    *i_mapping;
+
+  #ifdef CONFIG_SECURITY
+      void            *i_security;
+  #endif
+
+      /* Stat data, not accessed from path walking */
+      unsigned long       i_ino;
+      /*
+       ,* Filesystems may only read i_nlink directly.  They shall use the
+       ,* following functions for modification:
+       ,*
+       ,*    (set|clear|inc|drop)_nlink
+       ,*    inode_(inc|dec)_link_count
+       ,*/
+      union {
+          const unsigned int i_nlink;
+          unsigned int __i_nlink;
+      };
+      //设备文件对应的设备号
+      dev_t           i_rdev;
+      loff_t          i_size;
+      struct timespec     i_atime;
+      struct timespec     i_mtime;
+      struct timespec     i_ctime;
+      spinlock_t      i_lock; /* i_blocks, i_bytes, maybe i_size */
+      unsigned short          i_bytes;
+      unsigned int        i_blkbits;
+      blkcnt_t        i_blocks;
+
+  #ifdef __NEED_I_SIZE_ORDERED
+      seqcount_t      i_size_seqcount;
+  #endif
+
+      /* Misc */
+      unsigned long       i_state;
+      struct mutex        i_mutex;
+
+      unsigned long       dirtied_when;   /* jiffies of first dirtying */
+      //哈系表
+      struct hlist_node   i_hash;
+      struct list_head    i_wb_list;  /* backing dev IO list */
+      struct list_head    i_lru;      /* inode LRU list */
+      struct list_head    i_sb_list;
+      union {
+          struct hlist_head   i_dentry;
+          struct rcu_head     i_rcu;
+      };
+      u64         i_version;
+      atomic_t        i_count;
+      atomic_t        i_dio_count;
+      atomic_t        i_writecount;
+      const struct file_operations    *i_fop; /* former ->i_op->default_file_ops */
+      struct file_lock    *i_flock;
+      struct address_space    i_data;
+  #ifdef CONFIG_QUOTA
+      struct dquot        *i_dquot[MAXQUOTAS];
+  #endif
+      struct list_head    i_devices;
+      union {
+          struct pipe_inode_info  *i_pipe;
+          struct block_device *i_bdev;
+          struct cdev     *i_cdev;
+      };
+
+      __u32           i_generation;
+
+  #ifdef CONFIG_FSNOTIFY
+      __u32           i_fsnotify_mask; /* all events this inode cares about */
+      struct hlist_head   i_fsnotify_marks;
+  #endif
+
+  #ifdef CONFIG_IMA
+      atomic_t        i_readcount; /* struct files open RO */
+  #endif
+      void            *i_private; /* fs or device private pointer */
+  };
+
+
+  struct kobject {
+      const char      *name;
+      struct list_head    entry;
+      struct kobject      *parent;
+      struct kset     *kset;
+      struct kobj_type    *ktype;
+      struct kernfs_node  *sd;
+      struct kref     kref;
+  #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+      struct delayed_work release;
+  #endif
+      unsigned int state_initialized:1;
+      unsigned int state_in_sysfs:1;
+      unsigned int state_add_uevent_sent:1;
+      unsigned int state_remove_uevent_sent:1;
+      unsigned int uevent_suppress:1;
+  };
+  struct cdev {
+      struct kobject kobj;
+      struct module *owner; //所属模块
+      const struct file_operations *ops;
+      struct list_head list;
+      dev_t dev;
+      unsigned int count;
+  };
+
+  const struct file_operations def_chr_fops = {
+      .open = chrdev_open,
+      .llseek = noop_llseek,
+  };
+  static int chrdev_open(struct inode *inode, struct file *filp)
+  {
+      const struct file_operations *fops;
+      struct cdev *p;
+      struct cdev *new = NULL;
+      int ret = 0;
+
+      spin_lock(&cdev_lock);
+      p = inode->i_cdev;
+      if (!p) {
+          struct kobject *kobj;
+          int idx;
+          spin_unlock(&cdev_lock);
+          kobj = kobj_lookup(cdev_map, inode->i_rdev, &idx);
+          if (!kobj)
+              return -ENXIO;
+          new = container_of(kobj, struct cdev, kobj);
+          spin_lock(&cdev_lock);
+          /* Check i_cdev again in case somebody beat us to it while
+             we dropped the lock. */
+          p = inode->i_cdev;
+          if (!p) {
+              inode->i_cdev = p = new;
+              list_add(&inode->i_devices, &p->list);
+              new = NULL;
+          } else if (!cdev_get(p))
+              ret = -ENXIO;
+      } else if (!cdev_get(p))
+          ret = -ENXIO;
+      spin_unlock(&cdev_lock);
+      cdev_put(new);
+      if (ret)
+          return ret;
+
+      ret = -ENXIO;
+      fops = fops_get(p->ops);
+      if (!fops)
+          goto out_cdev_put;
+
+      replace_fops(filp, fops);
+      if (filp->f_op->open) {
+          ret = filp->f_op->open(inode, filp);
+          if (ret)
+              goto out_cdev_put;
+      }
+
+      return 0;
+
+   out_cdev_put:
+      cdev_put(p);
+      return ret;
+  }
+
+  int kobj_map(struct kobj_map *domain, dev_t dev, unsigned long range,
+           struct module *module, kobj_probe_t *probe,
+           int (*lock)(dev_t, void *), void *data)
+  {
+      unsigned n = MAJOR(dev + range - 1) - MAJOR(dev) + 1;
+      unsigned index = MAJOR(dev);
+      unsigned i;
+      struct probe *p;
+
+      if (n > 255)
+          n = 255;
+
+      p = kmalloc(sizeof(struct probe) * n, GFP_KERNEL);
+
+      if (p == NULL)
+          return -ENOMEM;
+
+      for (i = 0; i < n; i++, p++) {
+          p->owner = module;
+          p->get = probe;
+          p->lock = lock;
+          p->dev = dev;
+          p->range = range;
+          p->data = data;
+      }
+      mutex_lock(domain->lock);
+      for (i = 0, p -= n; i < n; i++, p++, index++) {
+          struct probe **s = &domain->probes[index % 255];
+          while (*s && (*s)->range < range)
+              s = &(*s)->next;
+          p->next = *s;
+          ,*s = p;
+      }
+      mutex_unlock(domain->lock);
+      return 0;
+  }
+
+  struct file_operations {
+      //拥有该结构的模块的指针,一般为THIS_MODULES
+      struct module *owner;
+      //用来修改文件当前的读写位置
+      loff_t (*llseek) (struct file *, loff_t, int);
+      //从设备中同步读取数据
+      ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+      //向设备发送数据
+      ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+      //初始化一个异步的读取操作
+      ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
+      //初始化一个异步的读取操作
+      ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
+      //
+      int (*iterate) (struct file *, struct dir_context *);
+      //轮询函数,判断目前是否可以进行非阻塞的读取和写入
+      unsigned int (*poll) (struct file *, struct poll_table_struct *);
+      //不使用BLK的文件系统,将使用此种函数指针代替ioctl
+      long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
+      //在64位系统上,32位的ioctl调用,将使用此函数指针代替
+      long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
+      //用于请求将设备内存映射到进程地址空间
+      int (*mmap) (struct file *, struct vm_area_struct *);
+      //统计计数,检查错误.申请资源.识别次设备号.
+      //如果必要,更新f_op指针
+      int (*open) (struct inode *, struct file *);
+      //刷缓存
+      int (*flush) (struct file *, fl_owner_t id);
+      //open的逆向操作
+      int (*release) (struct inode *, struct file *);
+      //刷新待处理的数据
+      int (*fsync) (struct file *, loff_t, loff_t, int datasync);
+      //异步 fsync
+      int (*aio_fsync) (struct kiocb *, int datasync);
+      //通知设备FASYNC标志发生变化
+      int (*fasync) (int, struct file *, int);
+      //
+      int (*lock) (struct file *, int, struct file_lock *);
+      //通常为NULL
+      ssize_t (*sendpage) (struct file *, struct page *, int, size_t, loff_t *, int);
+      //在当前进程的地址空间找到一个未映射的内存段
+      unsigned long (*get_unmapped_area)(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+      //允许模块检查传递给fcntl(F_SETEL...)调用的标志
+      int (*check_flags)(int);
+      //
+      int (*flock) (struct file *, int, struct file_lock *);
+      //由VFS调用,将管道数据粘接到文件
+      ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *, size_t, unsigned int);
+      ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
+      //
+      int (*setlease)(struct file *, long, struct file_lock **);
+      //
+      long (*fallocate)(struct file *file, int mode, loff_t offset,
+                loff_t len);
+      //
+      int (*show_fdinfo)(struct seq_file *m, struct file *f);
+  };
+  struct inode_operations {
+      struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
+      void * (*follow_link) (struct dentry *, struct nameidata *);
+      int (*permission) (struct inode *, int);
+      struct posix_acl * (*get_acl)(struct inode *, int);
+
+      int (*readlink) (struct dentry *, char __user *,int);
+      void (*put_link) (struct dentry *, struct nameidata *, void *);
+
+      int (*create) (struct inode *,struct dentry *, umode_t, bool);
+      int (*link) (struct dentry *,struct inode *,struct dentry *);
+      int (*unlink) (struct inode *,struct dentry *);
+      int (*symlink) (struct inode *,struct dentry *,const char *);
+      int (*mkdir) (struct inode *,struct dentry *,umode_t);
+      int (*rmdir) (struct inode *,struct dentry *);
+      int (*mknod) (struct inode *,struct dentry *,umode_t,dev_t);
+      int (*rename) (struct inode *, struct dentry *,
+              struct inode *, struct dentry *);
+      int (*setattr) (struct dentry *, struct iattr *);
+      int (*getattr) (struct vfsmount *mnt, struct dentry *, struct kstat *);
+      int (*setxattr) (struct dentry *, const char *,const void *,size_t,int);
+      ssize_t (*getxattr) (struct dentry *, const char *, void *, size_t);
+      ssize_t (*listxattr) (struct dentry *, char *, size_t);
+      int (*removexattr) (struct dentry *, const char *);
+      int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start,
+                u64 len);
+      int (*update_time)(struct inode *, struct timespec *, int);
+      int (*atomic_open)(struct inode *, struct dentry *,
+                 struct file *, unsigned open_flag,
+                 umode_t create_mode, int *opened);
+      int (*tmpfile) (struct inode *, struct dentry *, umode_t);
+      int (*set_acl)(struct inode *, struct posix_acl *, int);
+  } ____cacheline_aligned;
+
+struct file {
+    union {
+        struct llist_node	fu_llist;
+        struct rcu_head 	fu_rcuhead;
+    } f_u;
+    struct path		f_path;
+#define f_dentry	f_path.dentry
+    struct inode		*f_inode;	/* cached value */
+    const struct file_operations	*f_op;
+
+    /*
+     * Protects f_ep_links, f_flags.
+     * Must not be taken from IRQ context.
+     */
+    spinlock_t		f_lock;
+    atomic_long_t		f_count;
+    unsigned int 		f_flags;
+    fmode_t			f_mode;
+    struct mutex		f_pos_lock;
+    loff_t			f_pos;
+    struct fown_struct	f_owner;
+    const struct cred	*f_cred;
+    struct file_ra_state	f_ra;
+
+    u64			f_version;
+#ifdef CONFIG_SECURITY
+    void			*f_security;
+#endif
+    /* needed for tty driver, and maybe others */
+    void			*private_data;
+
+#ifdef CONFIG_EPOLL
+    /* Used by fs/eventpoll.c to link all the hooks to this file */
+    struct list_head	f_ep_links;
+    struct list_head	f_tfile_llink;
+#endif /* #ifdef CONFIG_EPOLL */
+    struct address_space	*f_mapping;
+#ifdef CONFIG_DEBUG_WRITECOUNT
+    unsigned long f_mnt_write_state;
+#endif
+} __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
+
+
+#+END_SRC
