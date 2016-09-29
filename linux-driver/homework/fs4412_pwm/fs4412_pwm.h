@@ -2,5 +2,10 @@
 #define _FS4412_PWM_H_
 
 #define FS4412_PWM_MAJOR 251
+#define GPD0_BASE 0x114000A0
+#define TCFG0_BASE 0x139D0000
+#define FS4412_PWM_NUMBER 1
+#define FS4412_PWM_MINOR 0
+
 
 #endif

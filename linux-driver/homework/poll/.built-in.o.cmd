@@ -1,0 +1,1 @@
+cmd_/home/linux/github/embedded/linux-driver/homework/poll/built-in.o :=  rm -f /home/linux/github/embedded/linux-driver/homework/poll/built-in.o; arm-none-linux-gnueabi-ar rcsD /home/linux/github/embedded/linux-driver/homework/poll/built-in.o

@@ -183,7 +183,7 @@ err4:
 err3:
     cdev_del(&led_chrcdev->cdev);
 err2:
-    unregister_chrdev_region(devno,1);
+    unregister_chrdev_region(devno,DEVICE_NUMBER);
 err1:
     kfree(led_chrcdev);
     return ret;

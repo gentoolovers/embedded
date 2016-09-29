@@ -1,0 +1,110 @@
+* 第一天
+** jdk环境变量配置
+1.
+系统变量→新建 JAVA_HOME 变量 。
+变量值填写jdk的安装目录（本人是C:\Program Files\Java\jdk1.6.0_38)
+
+2.系统变量→查找 Path 变量→编辑
+在变量值最后输入 %JAVA_HOME%\bin;%JAVA_HOME%\jre\bin;
+（注意原来Path的变量值末尾有没有;号，如果没有，先输入；号再输入上面的代码）
+
+3.系统变量→新建 CLASSPATH 变量
+变量值填写   .;%JAVA_HOME%\lib;%JAVA_HOME%\lib\tools.jar（注意最前面有一点）
+
+** 基本语法
+*** 继承
++ 可以实现代码的复用
++ 子类可继承父类的方法和属性
++ 类的构造器不能继承
+
+
+1.一个源文件中至多只能有一个public的class声明
+2.源文件名必须和public的类名相同
+
+
+如果一个java文件中没有public声明的类，你的文件名可以是任意的，但是，编译生成的字节码文件和文件名是没有关系的，和class声明的类名是一致的；
+但是，如果源文件中有public声明的类的话，源文件名称必须和public声明的类名一致，而且生成的字节码文件一定是和类名一致的。
+
+
+3.main方法是Java应用程序的入口方法（ public static void  main(String[] args)  ）
+
+
+三.数组的定义方式有两种：
+
+type[] arr_name;
+type arr_name[];
+
+
+在数组定义中，不能指定数组的长度，而需要在数组的创建阶段来指定
+
+int[]     a  = new int[10];
+float    b[]=new float[5];
+String c[];     c=new String[3];
+
+
+
+四.super 关键字的用法
+
+访问父类的成员变量   super.变量
+访问父类中被重写的方法   super.方法([参数列表])
+访问父类的构造器  super([参数列表])
+
+
+
+五.this关键字
+
+构造器中指该构造器所创建的新对象
+
+方法中指调用该方法的对象
+
+六.static
++ 修饰变量和方法, 表示该属性是类属性方法是类方法
++ 访问方式为: 类名.静态属性  类名.静态方法
++ static 不可用于修饰构造器
+* 第二天
+** final
++ 修饰类-----类不可被继承
++ 修饰变量----------在初始化后不可改变变量的值,如果变量是
+引用变量,则不可以改变他的引用对象,但可以改变对象的数据
++ 修饰方法----不可以被覆盖
+
+** abstract
++ 修饰类-------------这个类是抽象类
++ 修饰方法-----------这个方法是一个抽象方法
+
+抽象类不能被实例化,必须被继承后才可以是实例化
+
+抽象方法只有声明,而没有方法的实现.
+
+** 内部类
+实例化内部类的两种方法
+
+1. Outer.Inner in = new Outer().new Inner();
+
+2. Outer o = new Outer();
+
+   Outer.Inner I=o.new Inner();
+
+如果内部类是 static的,也可以用下面的方法
+
+Outer.Inner in = new Outer.Inner();
+
+Inner class 可以声明为抽象类,因此可以被其它的内部类继承,也可以
+被声明为final.
+
+和外层类不同,Inner class 可以声明为private或protected
+
+Inner class 可以声明为static的,但此时就不能再使用外层封装类
+的非static的成员;
+
+非static的内部类中的成员不能声明为static的,只有在顶层类或static
+的内部类中才可以声明为static成员.
+
+可以使用"封装类"的类名.this来访问封装类(外部类)的对象;
+
+oc.method(Outer.this);
+
+注意,如果内部类中使用this,此时它表示的是内部类的对象,而不是外
+部类的对象.
+* 图片
+[[file:./picture/java-run-process.png][java 运行流程图]]

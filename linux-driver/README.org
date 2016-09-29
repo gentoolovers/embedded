@@ -61,7 +61,8 @@
     MODULE  当make modules的时候被定义
 
     #ifndef MODULE
-        当模块内建与uImage中时，module_init负责定义一个函数指针指向初始化函数，并将函数指针链接到initcall段，系统启动时统一被调用
+        当模块内建于uImage中时，module_init负责定义一个函数指针指向初始化函数，
+        并将函数指针链接到initcall段，系统启动时统一被调用
 
 
 
@@ -126,7 +127,7 @@
     一般情况主设备号用来区分设备类型，次设备号区分同类型设备
         dev_t devno = MKDEV(major， minor);
         major = MAJOR(devno);
-        minor = MINOR(dev_t)
+        minor = MINOR(devno);
 
     cat /proc/devices 查看当前系统中主设备号的使用情况
     申请设备号：
@@ -308,31 +309,487 @@
     write(unsigned int data, void __iomem *addr);
 
 ** 写LED驱动
+
     1、看原理图---了解LED所使用的资源
+        LED2  GPX2_7
+        LED3  GPX1_0
+        LED4  GPF3_4
+        LED5  GPF3_5
+
     2、芯片手册---了解使用的硬件资源所对应的寄存器，及寄存器中每一位的含义
+        GPF3_4
+        GPF3_5
+        0x114001E0===>[23:16] <==0x11
+        0x114001E4===>[5:4] <==== 0x0~0x3
+
+        GPX1_0
+        0x11000c20===>[3:0] <==0x1
+        0x11000c24===>[0] <==0x0/0x1
+
+        GPX2_7
+        0x11000c40===>[31:28] <== 0x1
+        0x11000c44===>[7] <==0x0/0x1
+
     3、写驱动
         加载函数
-            申请设备号
-            注册设备
-            寄存器的映射
-            寄存器的初始化
+            申请设备号---register_chrdev_region
+            注册设备---struct cdev, cdev_init, cdev_add
+            寄存器的映射---ioremap
+            寄存器的初始化---readl/write
         卸载函数
-            注销设备
-            释放设备号
+            取消映射---iounmap
+            注销设备---cdev_del
+            释放设备号---unregister_chrdev_region
         许可证声明
 
         实现file_operations
             open
             release
             ioctl
+                _IO
+                _IOR
+                _IOW
+                _IOWR
+
+                解析命令：
+                switch-case
+                writel/readl
 
             write
 
 
 如果申请资源会影响系统性能,就放在open里.影响不大的也可以放在加载
 函数里.
+* 第三天
+** 设备树
+    节点
+    属性：
+        公共属性：由linux内核解析  转换成通用结构
+            compatible = <厂商名称,芯片名称>;  节点名称用来和driver匹配
+            reg = <地址 大小 ....> 一般是内存资源的描述，也可能是地址资源
+            ======> 转换为platform_device时用来填充内存资源或地址资源
+                注意reg资源解析和上级节点的address-cells size-cells属性有关
+            interrupts = <0 32 0>; <中断控制器编号 中断号 触发方式(除外部中断外全是0)>
+            ====>  转换为platform_device时用来填充中断资源
+                触发方式：
+                1	上升沿
+                2	下降沿
+                4	高电平
+                8	低电平
+
+            如果这个中断时外部中断
+            interrupt-parent = <&gpx0>; <gpio>
+            interrupts = <6 4>;  <使用的是这组gpio第几个gpio口 触发方式>
+
+            复用中断 以adc中断为例
+            interrupt-parent = <&combiner>;
+            interrupts = <10 3>; <中断号 这组中断的第几个>
+
+            clocks = <&clock 256>；<时钟控制器 时钟编号>；
+            ======> 在系统启动中会被注册到系统中去，注册一个时钟，等设备使用
+            clock-names = “fimc”；
+“Cells”是由尖括号分隔的32位无符号整数：cell-property = <0xbeef 123 0xabcd1234>
+
+ 二进制数据是用方括号分隔：binary-property = [0x01 0x23 0x45 0x67];
+
+ 不同格式的数据可以用逗号连接在一起：mixed-property = "a string",
+ [0x01 0x23 0x45 0x67], <0x12345678>;
+
+ 逗号也可以用来创建字符串列表：string-list = "red fish", "blue fish";
+
+
+
+        私有属性：须有驱动自己解析
+            没有一定的规范用户可以根据自己的需求自定义任何名称的属性
+
+** linux下中断机制
+
+    中断注册：
+    int __must_check request_irq(unsigned int irqno,
+                irq_handler_t handler,
+                unsigned long flags,
+                const char *name,
+                void *devid)
+
+    irqno: 中断号--这是一个软件概念，但是每个号和硬件中断号都有对应关系
+            在使用平台代码的平台上，内核和会存在特定的文件：在平台代码里有irqs.h，在这个文件里有很多宏用来表示每个中断号
+            在使用设备树的平台上，这个编号来自于设备树种节点属性中的interrupts属性--->这个属性被转换为中断号--通过platform_device->resource->start传递给驱动
+
+    handler：中断处理函数，这个一个返回值为irqreturn_t,参数为int，void *的函数指针
+        irqreturn_t handler(int irqno, void *devid)
+        {
+            /*处理中断*/
+            return IRQ_HANDLED;
+        }
+        注意：中断处理函数中不能有可能引起睡眠的操作---不能直接或间接的产生进程调度
+              中断处理函数不能占用太长时间---中断处理函数需尽快返回
+              当中断处理函数需要处理任务比较重的时候，需要将多数任务放在“底半部/下半部---tastlet、workqueue”去执行
+
+    flags：中断标志
+        中断类型 |中断触发方式
+        类型
+        IRQF_DISABLED	当当前中断处理函数被执行期间，系统中断被屏蔽
+        IRQF_SHARED		允许多个驱动申请同一个中断
+
+        触发方式（外部中断）
+        IRQF_TRIGGER_RISING
+        IRQF_TRIGGER_FALLING
+        IRQF_TRIGGER_HIGH
+        IRQF_TRIGGER_LOW
+        IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING
+
+    name：一般为驱动或设备的名称
+
+    devid；1、传递参数，当中断处理函数执行时，这个参数通过中断处理函数第二个参数传递到中断处理函数中，如果不传参则为NULL
+           2、在共享中断中，这个参数不能为NULL，且这个参数需要具备唯一性，将来用来做身份识别
+
+    返回值：0 成功
+            -errno 失败
+
+    void free_irq(unsigned int irqno， void *devid);
+        irqno: 中断号
+        devid：用来做身份验证，需要与reqeuet_irq第五个参数一致
+
+
+    共享中断中中断处理原则：
+        1、检测当前中断是否是本设备产生的生的
+        2、如果是则继续处理
+           如果不是则立即返回IRQ_NONE
+
+** 编写按键驱动K2/K3
+    1、修改设备树
+    fs4412-key {
+        compatible = "fs4412,key";
+        interrupt-parent = <&gpx1>;
+        interrupts = <1 2>, <2 2>;
+    };
+
+    ===>
+    struct resource key_resource[] = {
+        [0] = {
+            .start	= key2的中断号
+            .end	= key2的中断号
+            .flags = IORESOURCE_IRQ,
+        }，
+        [1] = {
+            .start	= key3的中断号
+            .end	= key3的中断号
+            .flags = IORESOURCE_IRQ,
+        };
+    };
+
+    struct platform_device key_device = {
+        .name = "fs4412-key",
+        .id = -1,
+        .resource = key_resource,
+        .num_resource = ARRAY_SIZE(key_resource),
+    };
+
+    1、构建驱动
+    定义platform_driver
+
+    static struct of_device_id key_table[] = {
+    {.compatible = "fs4412,key",},
+    {},
+    };
+    MODULE_DEVICE_TABLE(of, platform_device_dt_table);
+
+    struct platform_drvire key_driver = {
+        .driver = {
+            .name = "fs4412-key";
+            .of_match_table = of_match_ptr(key_table),
+        },
+        .probe =
+        .remove =
+    }；
+
+    注册platform_driver到platform子系统中---在加载函数中完成---platform_driver_register
+    注销platform_driver从platform子系统中---在卸载函数中完成---platform_drivre_unregister
+
+
+    重点：实现先probe函数
+    int probe(struct platform_device *pdev)
+
+        不推荐使用如下用法
+        key2_irqno = pdev->resource[0].start
+        key3_irqno = pdev->resource[1].start
+
+        推荐使用如下用法
+        struct resource *platform_get_resource(struct platform_device *pdev,
+                                               unsigned int type, unsigned int num);
+            pdev: 指向platform_device
+            Type：要获得的资源的类型可以是IORESOURCE_MEM、IORESOURCE_IRQ。。。
+            num：要获得某种资源的第几个(从0开始)资源
+
+            这个函数需要判断返回值
+
+        struct resource *irq_resource = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+        key2_irqno = irq_resource->start
+        struct resource *irq_resource = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
+        key3_irqno = irq_resource->start
+
+        ret = request_irq(key2_irqno, handler, IRQF_DISABLED|IRQF_TRIGGER_FALLING, "key2", NULL)
+
+    实现先remove函数
+        与probe相反
+
+    重点：中断处理函数的实现
+         irqreturn_t handler(int irqno, void *devid)
+        {
+            printk("irqno = %d\n", irqno);
+            return IRQ_HANDLED;
+        }
+
+* 第四天
+【1】提供字符设备接口
+（1）创建结构体cdev
+（2）初始化cdev
+     1-- dev_t  设备号
+     2-- file_operations 字符设备操作集合
+           open
+           release
+           read
+（3）注册cdev
+（4）释放cdev
+
+【2】IO模型
+  1-- 阻塞（默认）
+      进程去请求资源，资源存在带着资源返回，资源不存在，在内核睡眠等待，直到资源达到。
+  2-- 非阻塞
+      进程去请求资源，资源存在带着资源返回，资源不存在，出错返回。
+  3-- IO多路复用  select
+      监听多路IO
+  4-- 异步通知（信号驱动）
+      被动方式，效率最高。
+
+【3】实现阻塞方式
+【3-1】应用层使用阻塞（默认）
+【3-2】底层驱动实现阻塞（使用等待队列）
+（1）定义“等待队列头”               --- 定义成全局变量
+     wait_queue_head_t  my_queue;
+（2）初始化“等待队列头”
+    init_waitqueue_head(&my_queue);   --- 放在init函数里
+
+（3）在有可能引起睡眠的地方调用等待事件函数
+     wait_event(queue, condition)               --- 深睡
+     wait_event_interruptible(queue, condition) --- 浅睡
+
+     condition 是条件表达式，表示当前是否有资源
+     condition 不成立，睡眠     ---- 最终通过wake_up函数唤醒
+     condition 成立， 顺序执行
+
+（4）唤醒队列
+     产生和（3）对应的资源的地方。
+    void wake_up(wait_queue_head_t *queue);
+    void wake_up_interruptible(wait_queue_head_t *queue);
+
+【4】实现非阻塞
+【4-1】应用层使用非阻塞
+    （1）open（" ", O_NONBLOCK）
+    （2）fcntl改变file的flag标志
+【4-2】底层实现非阻塞
+    （1）通过file->f_flags 的第14位
+        if(file->f_flags & O_NONBLOCK)
+         {
+        非阻塞
+              if(condition)
+        return -EAGAIN;  //
+           }
+         else
+         {
+        阻塞
+           wait_event(queue, condition)
+         }
+
+
+
+
+
+
+【5】IO多路复用
+【5-1】IO多路复用应用层实现 select
+   int select(int nfds, fd_set *readfds, fd_set *writefds,fd_set *exceptfds, struct timeval *timeout);
+功能：实现io多路复用
+输入参数：  nfds     ：当前最大文件描述符+1
+            readfds  ：读文件集合
+            writefds ：写文件集合
+            exceptfds：通知文件集合
+                          void FD_CLR(int fd, fd_set *set);
+                      int  FD_ISSET(int fd, fd_set *set);
+                              void FD_SET(int fd, fd_set *set);
+                              void FD_ZERO(fd_set *set);
+           timeout  ：null  --- 阻塞
+                       0    --- 非阻塞
+                     特定值 --- 定时，时间到达之前是阻塞
+返回值：能过操作的文件描述符的个数
+        注意：集合会跟新，只留下能够操作的文件描述符
+
+【5-2】IO多路复用的驱动的实现
+本质实现poll方法，模板：
+ static unsigned int xxx_poll(struct file *filp, poll_table *wait)
+ {
+      unsigned int mask = 0;
+      struct xxx_dev *dev = filp->private_data; /*获得设备结构体指针*/
+       ...
+      poll_wait(filp, &dev->r_wait, wait);//加读等待队列头
+      poll_wait(filp, &dev->w_wait, wait);//加写等待队列头
+      if (...)//可读
+      {
+            mask |= POLLIN | POLLRDNORM; /*标示数据可获得*/
+      }
+      if (...)//可写
+      {
+            mask |= POLLOUT | POLLWRNORM; /*标示数据可写入*/
+        }
+        ...
+        return mask;
+}
+
+【6】异步通知
+  本质：在所有的IO模型中，效率最高，异步通知并不是应用程序主动去请求资源，
+    而是当资源到来时，内核通过信号通知应用程序，来获得资源。
+【6-1】异步通知应用层实现
+（1）定义信号处理函数
+     void handler(int no)
+    {
+        //获得资源
+    }
+
+（2）将SIGIO和信号处理函数绑定
+    sighandler_t signal(SIGIO, sighandler_t handler);
+
+（3）设置属主
+     fcntl(fd,F_SETOWN,getpid());
+
+（4）使用异步通知IO模型去获取资源
+      读：unsigned int  flag = fcntl(fd，F_GETFL);
+      改： flag= flag | FASYNC;
+      写：fcnt(fd,F_SETFL,flag);
+    三合一：fcnt(fd,FSETFL,fcntl(fd,F_GETFL)|FASYNC);
+
+【6-2】异步通知的底层实现
+
+
+
+ 当应用层设置FASYNC位时，会调用驱动中的fasync方法。
+
+（1）定义异步通知队列指针变量。
+     struct fasync_struct *fasp;
+
+（2）添加当前进程到异步通知队列
+   int hello_fasync(int fd ,struct file * fp,int cmd)
+    {
+        fasync_helper(fd,fp,cmd,&fasp);
+    return 0;
+   }
+
+   struct file_operations hello_fops ={
+     ...
+     fasync = fasync_helper;
+     ...
+
+  };
+
+（3）当资源到来时，给fasync队列中的进程发SIGIO信号。
+     可读：kill_fasync(&fasp,SIGIO,POLL_IN);
+     可写：kill_fsaync(&fasp,SIGIO,POLL_OUT);
+
+（4）不使用异步通知了，或进程关闭了，需要取消。
+
+      release函数中，
+        fasync_helper(-1,fp,0,&fasp);单
+
+
+
+
+
+=======================================================================
+
+【1】并发
+（1）并发：一个时刻多个程序同时运行
+（2）并发的好处：效率高
+（3）并发的问题：互斥
+（4）临界资源：同个时刻不能被多个进程同时访问的资源（变量、寄存器、缓冲区）
+（5）临界区 ：访问临界资源的代码
+（6）会产生并发互斥的情况
+     1-- 进程和进程
+     2-- 中断和进程
+     3-- 多cpu
+
+【2】中断屏蔽
+（1）实现流程
+local_irq_disable() /* 屏蔽中断 */
+. . .
+critical section /* 临界区*/
+. . .
+local_irq_enable()  /* 开中断*/
+（2）注意：只能解决中断和进程之间的互斥。
+（3）注意：一般不使用。
+
+
+【3】原子操作
+（1）定义原子变量
+     atomic_t flag;
+（2）初始化原子变量
+      atomic_set(&flag, 1)
+
+（3）临界区之前，操作并测试
+     if(!atomic_dec_and_test(&flag))
+     {
+
+         atomic_inc(&flag);
+     }
+     else
+     {
+     //操作临界资源
+    atomic_inc(&flag);
+     }
+
+（4）临界区之后反向操作
+     atomic_inc(&flag);
+
+【4】自旋锁     ---- 中断上下文
+（1）自旋锁：
+       自旋：不能获得锁，也就不能访问临界资源，这是会忙等待（占用cpu）。
+         锁：令牌，获得令牌才能访问临界资源。
+（2）自旋锁要求：持有锁的时间要足够短。
+
+（3）
+ 1-- 定义自旋锁
+     spinlock_t  lock;
+ 2-- 初始化自旋锁
+     spin_lock_init(&lock)
+ 3-- 获得自旋锁
+     spin_lock(&lock)
+    如果能够立即获得锁，它就马上返回，否则，它将自旋在那里
+ 4-- 访问临界资源
+
+ 5-- 释放自旋锁
+     spin_unlock(&lock)
+
+
+【6】信号量来实现互斥互斥访问  --- 进程上下文
+  本质：给想访问同一个临界资源的进程排队，保证一个时刻只有一个进程访问临界资源。
+  申请信号量，能够申请顺序执行，如果不能获取，睡眠等待，直到信号量到来。
+
+
+（1）定义信号量
+     struct semaphore sem;
+
+（2）初始化信号量（加载函数）
+     void  sema_init(struct semaphore *sem, int val);
+
+（3）信号量的获取
+     void  down(struct semaphore * sem);
+
+（4）临界区
+
+（5）信号量的释放
+    void up(struct semaphore * sem);
+
 * 字符设备分析
 #+BEGIN_SRC C
+
 
   struct kobj_map {
       struct probe {
@@ -347,104 +804,7 @@
       struct mutex *lock;
   };
 
-  struct inode {
-       //inode的权限
-      umode_t         i_mode;
 
-      unsigned short      i_opflags;
-      //inode拥有者的id
-      kuid_t          i_uid;
-      //inode所属组的组id
-      kgid_t          i_gid;
-
-      unsigned int        i_flags;
-
-  #ifdef CONFIG_FS_POSIX_ACL
-      struct posix_acl    *i_acl;
-      struct posix_acl    *i_default_acl;
-  #endif
-
-      const struct inode_operations   *i_op;
-      //相关的超级块
-      struct super_block  *i_sb;
-      //相关的地址映射
-      struct address_space    *i_mapping;
-
-  #ifdef CONFIG_SECURITY
-      void            *i_security;
-  #endif
-
-      /* Stat data, not accessed from path walking */
-      unsigned long       i_ino;
-      /*
-       ,* Filesystems may only read i_nlink directly.  They shall use the
-       ,* following functions for modification:
-       ,*
-       ,*    (set|clear|inc|drop)_nlink
-       ,*    inode_(inc|dec)_link_count
-       ,*/
-      union {
-          const unsigned int i_nlink;
-          unsigned int __i_nlink;
-      };
-      //设备文件对应的设备号
-      dev_t           i_rdev;
-      loff_t          i_size;
-      struct timespec     i_atime;
-      struct timespec     i_mtime;
-      struct timespec     i_ctime;
-      spinlock_t      i_lock; /* i_blocks, i_bytes, maybe i_size */
-      unsigned short          i_bytes;
-      unsigned int        i_blkbits;
-      blkcnt_t        i_blocks;
-
-  #ifdef __NEED_I_SIZE_ORDERED
-      seqcount_t      i_size_seqcount;
-  #endif
-
-      /* Misc */
-      unsigned long       i_state;
-      struct mutex        i_mutex;
-
-      unsigned long       dirtied_when;   /* jiffies of first dirtying */
-      //哈系表
-      struct hlist_node   i_hash;
-      struct list_head    i_wb_list;  /* backing dev IO list */
-      struct list_head    i_lru;      /* inode LRU list */
-      struct list_head    i_sb_list;
-      union {
-          struct hlist_head   i_dentry;
-          struct rcu_head     i_rcu;
-      };
-      u64         i_version;
-      atomic_t        i_count;
-      atomic_t        i_dio_count;
-      atomic_t        i_writecount;
-      const struct file_operations    *i_fop; /* former ->i_op->default_file_ops */
-      struct file_lock    *i_flock;
-      struct address_space    i_data;
-  #ifdef CONFIG_QUOTA
-      struct dquot        *i_dquot[MAXQUOTAS];
-  #endif
-      struct list_head    i_devices;
-      union {
-          struct pipe_inode_info  *i_pipe;
-          struct block_device *i_bdev;
-          struct cdev     *i_cdev;
-      };
-
-      __u32           i_generation;
-
-  #ifdef CONFIG_FSNOTIFY
-      __u32           i_fsnotify_mask; /* all events this inode cares about */
-      struct hlist_head   i_fsnotify_marks;
-  #endif
-
-  #ifdef CONFIG_IMA
-      atomic_t        i_readcount; /* struct files open RO */
-  #endif
-      void            *i_private; /* fs or device private pointer */
-  };
 
 
   struct kobject {
@@ -624,81 +984,976 @@
       //
       int (*show_fdinfo)(struct seq_file *m, struct file *f);
   };
-  struct inode_operations {
-      struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
-      void * (*follow_link) (struct dentry *, struct nameidata *);
-      int (*permission) (struct inode *, int);
-      struct posix_acl * (*get_acl)(struct inode *, int);
 
-      int (*readlink) (struct dentry *, char __user *,int);
-      void (*put_link) (struct dentry *, struct nameidata *, void *);
+#+END_SRC
+* 平台设备
+#+BEGIN_SRC C
+struct resource {
+    resource_size_t start;
+    resource_size_t end;
+    const char *name;
+    unsigned long flags;
+    struct resource *parent, *sibling, *child;
+};
 
-      int (*create) (struct inode *,struct dentry *, umode_t, bool);
-      int (*link) (struct dentry *,struct inode *,struct dentry *);
-      int (*unlink) (struct inode *,struct dentry *);
-      int (*symlink) (struct inode *,struct dentry *,const char *);
-      int (*mkdir) (struct inode *,struct dentry *,umode_t);
-      int (*rmdir) (struct inode *,struct dentry *);
-      int (*mknod) (struct inode *,struct dentry *,umode_t,dev_t);
-      int (*rename) (struct inode *, struct dentry *,
-              struct inode *, struct dentry *);
-      int (*setattr) (struct dentry *, struct iattr *);
-      int (*getattr) (struct vfsmount *mnt, struct dentry *, struct kstat *);
-      int (*setxattr) (struct dentry *, const char *,const void *,size_t,int);
-      ssize_t (*getxattr) (struct dentry *, const char *, void *, size_t);
-      ssize_t (*listxattr) (struct dentry *, char *, size_t);
-      int (*removexattr) (struct dentry *, const char *);
-      int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start,
-                u64 len);
-      int (*update_time)(struct inode *, struct timespec *, int);
-      int (*atomic_open)(struct inode *, struct dentry *,
-                 struct file *, unsigned open_flag,
-                 umode_t create_mode, int *opened);
-      int (*tmpfile) (struct inode *, struct dentry *, umode_t);
-      int (*set_acl)(struct inode *, struct posix_acl *, int);
-  } ____cacheline_aligned;
+struct of_device_id
+{
+    char	name[32];
+    char	type[32];
+    char	compatible[128];
+    const void *data;
+};
 
-struct file {
+
+
+struct device {
+    struct device		*parent;
+
+    struct device_private	*p;
+
+    struct kobject kobj;
+    const char		*init_name; /* initial name of the device */
+    const struct device_type *type;
+
+    struct mutex		mutex;	/* mutex to synchronize calls to
+                     * its driver.
+                     */
+
+    struct bus_type	*bus;		/* type of bus device is on */
+    struct device_driver *driver;	/* which driver has allocated this
+                       device */
+    void		*platform_data;	/* Platform specific data, device
+                       core doesn't touch it */
+    void		*driver_data;	/* Driver data, set and get with
+                       dev_set/get_drvdata */
+    struct dev_pm_info	power;
+    struct dev_pm_domain	*pm_domain;
+
+#ifdef CONFIG_GENERIC_MSI_IRQ_DOMAIN
+    struct irq_domain	*msi_domain;
+#endif
+#ifdef CONFIG_PINCTRL
+    struct dev_pin_info	*pins;
+#endif
+#ifdef CONFIG_GENERIC_MSI_IRQ
+    struct list_head	msi_list;
+#endif
+
+#ifdef CONFIG_NUMA
+    int		numa_node;	/* NUMA node this device is close to */
+#endif
+    u64		*dma_mask;	/* dma mask (if dma'able device) */
+    u64		coherent_dma_mask;/* Like dma_mask, but for
+                         alloc_coherent mappings as
+                         not all hardware supports
+                         64 bit addresses for consistent
+                         allocations such descriptors. */
+    unsigned long	dma_pfn_offset;
+
+    struct device_dma_parameters *dma_parms;
+
+    struct list_head	dma_pools;	/* dma pools (if dma'ble) */
+
+    struct dma_coherent_mem	*dma_mem; /* internal for coherent mem
+                         override */
+#ifdef CONFIG_DMA_CMA
+    struct cma *cma_area;		/* contiguous memory area for dma
+                       allocations */
+#endif
+    /* arch specific additions */
+    struct dev_archdata	archdata;
+
+    struct device_node	*of_node; /* associated device tree node */
+    struct fwnode_handle	*fwnode; /* firmware device node */
+
+    dev_t			devt;	/* dev_t, creates the sysfs "dev" */
+    u32			id;	/* device instance */
+
+    spinlock_t		devres_lock;
+    struct list_head	devres_head;
+
+    struct klist_node	knode_class;
+    struct class		*class;
+    const struct attribute_group **groups;	/* optional groups */
+
+    void	(*release)(struct device *dev);
+    struct iommu_group	*iommu_group;
+
+    bool			offline_disabled:1;
+    bool			offline:1;
+};
+
+
+struct platform_device {
+    const char	*name;
+    int		id;
+    bool		id_auto;
+    struct device	dev;
+    u32		num_resources;
+    struct resource	*resource;
+
+    const struct platform_device_id	*id_entry;
+
+    /* MFD cell pointer */
+    struct mfd_cell *mfd_cell;
+
+    /* arch specific additions */
+    struct pdev_archdata	archdata;
+};
+
+struct platform_device_info {
+        struct device *parent;
+        struct acpi_dev_node acpi_node;
+
+        const char *name;
+        int id;
+
+        const struct resource *res;
+   if(fs4412_key_2 ! = NULL)
+    {
+        free_irq(fs4412_key_2->start,NULL);
+    }       unsigned int num_res;
+
+        const void *data;
+        size_t size_data;
+        u64 dma_mask;
+};
+struct platform_driver {
+    int (*probe)(struct platform_device *);
+    int (*remove)(struct platform_device *);
+    void (*shutdown)(struct platform_device *);
+    int (*suspend)(struct platform_device *, pm_message_t state);
+    int (*resume)(struct platform_device *);
+    struct device_driver driver;
+    const struct platform_device_id *id_table;
+    bool prevent_deferred_probe;
+};
+struct device_node {
+    const char *name;
+    const char *type;
+    phandle phandle;
+    const char *full_name;
+
+    struct	property *properties;
+    struct	property *deadprops;	/* removed properties */
+    struct	device_node *parent;
+    struct	device_node *child;
+    struct	device_node *sibling;
+    struct	device_node *next;	/* next device of same type */
+    struct	device_node *allnext;	/* next in list of all nodes */
+    struct	proc_dir_entry *pde;	/* this node's proc directory */
+    struct	kref kref;
+    unsigned long _flags;
+    void	*data;
+#if defined(CONFIG_SPARC)
+    const char *path_component_name;
+    unsigned int unique_id;
+    struct of_irq_controller *irq_trans;
+#endif
+};
+#+END_SRC
+* 中断
+#+BEGIN_SRC C
+struct irq_domain_chip_generic {
+    unsigned int		irqs_per_chip;
+    unsigned int		num_chips;
+    unsigned int		irq_flags_to_clear;
+    unsigned int		irq_flags_to_set;
+    enum irq_gc_flags	gc_flags;
+    struct irq_chip_generic	*gc[0];
+};
+
+
+struct irq_chip_generic {
+    raw_spinlock_t		lock;
+    void __iomem		*reg_base;
+    unsigned int		irq_base;
+    unsigned int		irq_cnt;
+    u32			mask_cache;
+    u32			type_cache;
+    u32			polarity_cache;
+    u32			wake_enabled;
+    u32			wake_active;
+    unsigned int		num_ct;
+    void			*private;
+    unsigned long		installed;
+    unsigned long		unused;
+    struct irq_domain	*domain;
+    struct list_head	list;
+    struct irq_chip_type	chip_types[0];
+};
+
+struct irq_chip_type {
+    struct irq_chip		chip;
+    struct irq_chip_regs	regs;
+    irq_flow_handler_t	handler;
+    u32			type;
+    u32			mask_cache_priv;
+    u32			*mask_cache;
+};
+
+struct irqaction {
+    irq_handler_t		handler;
+    void			*dev_id;
+    void __percpu		*percpu_dev_id;
+    struct irqaction	*next;
+    irq_handler_t		thread_fn;
+    struct task_struct	*thread;
+    unsigned int		irq;
+    unsigned int		flags;
+    unsigned long		thread_flags;
+    unsigned long		thread_mask;
+    const char		*name;
+    struct proc_dir_entry	*dir;
+} ____cacheline_internodealigned_in_smp;
+
+enum irqreturn {
+    IRQ_NONE		= (0 << 0),
+    IRQ_HANDLED		= (1 << 0),
+    IRQ_WAKE_THREAD		= (1 << 1),
+};
+struct tasklet_struct
+{
+    struct tasklet_struct *next;
+    unsigned long state;
+    atomic_t count;
+    void (*func)(unsigned long);
+    unsigned long data;
+};
+struct irq_desc {
+    struct irq_data		irq_data;
+    unsigned int __percpu	*kstat_irqs;
+    irq_flow_handler_t	handle_irq;
+#ifdef CONFIG_IRQ_PREFLOW_FASTEOI
+    irq_preflow_handler_t	preflow_handler;
+#endif
+    struct irqaction	*action;	/* IRQ action list */
+    unsigned int		status_use_accessors;
+    unsigned int		core_internal_state__do_not_mess_with_it;
+    unsigned int		depth;		/* nested irq disables */
+    unsigned int		wake_depth;	/* nested wake enables */
+    unsigned int		irq_count;	/* For detecting broken IRQs */
+    unsigned long		last_unhandled;	/* Aging timer for unhandled count */
+    unsigned int		irqs_unhandled;
+    raw_spinlock_t		lock;
+    struct cpumask		*percpu_enabled;
+#ifdef CONFIG_SMP
+    const struct cpumask	*affinity_hint;
+    struct irq_affinity_notify *affinity_notify;
+#ifdef CONFIG_GENERIC_PENDING_IRQ
+    cpumask_var_t		pending_mask;
+#endif
+#endif
+    unsigned long		threads_oneshot;
+    atomic_t		threads_active;
+    wait_queue_head_t       wait_for_threads;
+#ifdef CONFIG_PROC_FS
+    struct proc_dir_entry	*dir;
+#endif
+    int			parent_irq;
+    struct module		*owner;
+    const char		*name;
+} ____cacheline_internodealigned_in_smp;
+struct irq_chip {
+    const char	*name;
+    unsigned int	(*irq_startup)(struct irq_data *data);
+    void		(*irq_shutdown)(struct irq_data *data);
+    void		(*irq_enable)(struct irq_data *data);
+    void		(*irq_disable)(struct irq_data *data);
+
+    void		(*irq_ack)(struct irq_data *data);
+    void		(*irq_mask)(struct irq_data *data);
+    void		(*irq_mask_ack)(struct irq_data *data);
+    void		(*irq_unmask)(struct irq_data *data);
+    void		(*irq_eoi)(struct irq_data *data);
+
+    int		(*irq_set_affinity)(struct irq_data *data, const struct cpumask *dest, bool force);
+    int		(*irq_retrigger)(struct irq_data *data);
+    int		(*irq_set_type)(struct irq_data *data, unsigned int flow_type);
+    int		(*irq_set_wake)(struct irq_data *data, unsigned int on);
+
+    void		(*irq_bus_lock)(struct irq_data *data);
+    void		(*irq_bus_sync_unlock)(struct irq_data *data);
+
+    void		(*irq_cpu_online)(struct irq_data *data);
+    void		(*irq_cpu_offline)(struct irq_data *data);
+
+    void		(*irq_suspend)(struct irq_data *data);
+    void		(*irq_resume)(struct irq_data *data);
+    void		(*irq_pm_shutdown)(struct irq_data *data);
+
+    void		(*irq_calc_mask)(struct irq_data *data);
+
+    void		(*irq_print_chip)(struct irq_data *data, struct seq_file *p);
+
+    unsigned long	flags;
+};
+
+#+END_SRC
+* 进程间通信
+#+BEGIN_SRC C
+typedef struct {
+    volatile unsigned int lock;
+} arch_spinlock_t;
+
+typedef struct raw_spinlock {
+    arch_spinlock_t raw_lock;
+#ifdef CONFIG_GENERIC_LOCKBREAK
+    unsigned int break_lock;
+#endif
+#ifdef CONFIG_DEBUG_SPINLOCK
+    unsigned int magic, owner_cpu;
+    void *owner;
+#endif
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+    struct lockdep_map dep_map;
+#endif
+} raw_spinlock_t;
+
+/* Please don't access any members of this structure directly */
+struct semaphore {
+    raw_spinlock_t		lock;
+    unsigned int		count;
+    struct list_head	wait_list;
+};
+
+struct sem {
+    int	semval;		/* current value */
+    /*
+     * PID of the process that last modified the semaphore. For
+     * Linux, specifically these are:
+     *  - semop
+     *  - semctl, via SETVAL and SETALL.
+     *  - at task exit when performing undo adjustments (see exit_sem).
+     */
+    int	sempid;
+    spinlock_t	lock;	/* spinlock for fine-grained semtimedop */
+    struct list_head pending_alter; /* pending single-sop operations */
+                    /* that alter the semaphore */
+    struct list_head pending_const; /* pending single-sop operations */
+                    /* that do not alter the semaphore*/
+    time_t	sem_otime;	/* candidate for sem_otime */
+} ____cacheline_aligned_in_smp;
+
+/* One sem_array data structure for each set of semaphores in the system. */
+struct sem_array {
+    struct kern_ipc_perm	____cacheline_aligned_in_smp
+                sem_perm;	/* permissions .. see ipc.h */
+    time_t			sem_ctime;	/* last change time */
+    //保存了当前信号量的值和上一次访问它的进程PID
+    struct sem		*sem_base;	/* ptr to first semaphore in array */
+    struct list_head	pending_alter;	/* pending operations */
+                        /* that alter the array */
+    struct list_head	pending_const;	/* pending complex operations */
+                        /* that do not alter semvals */
+    struct list_head	list_id;	/* undo requests on this array */
+    int			sem_nsems;	/* no. of semaphores in array */
+    int			complex_count;	/* pending complex operations */
+};
+
+
+/* One queue for each sleeping process in the system. */
+struct sem_queue {
+    struct list_head	list;	 /* queue of pending operations */
+    struct task_struct	*sleeper; /* this process */
+    struct sem_undo		*undo;	 /* undo structure */
+    int			pid;	 /* process id of requesting process */
+    int			status;	 /* completion status of operation */
+    //待决操作数组
+    struct sembuf		*sops;	 /* array of pending operations */
+    struct sembuf		*blocking; /* the operation that blocked */
+    int			nsops;	 /* number of operations */
+    //操作数组是否改变了
+    int			alter;	 /* does *sops alter the array? */
+};
+
+
+#define IPCMNI 32768  /* <= MAX_INT limit for ipc arrays (including sysctl changes) */
+
+/* used by in-kernel data structures */
+//保存了有关信号量 "所有者"和访问权限的有关信息
+struct kern_ipc_perm
+{
+    spinlock_t	lock;
+    bool		deleted;
+    //内部id
+    int		id;
+    //用户程序用来标识信号量的魔数
+    key_t		key;
+    kuid_t		uid;
+    kgid_t		gid;
+    //产生信号量的进程id
+    kuid_t		cuid;
+    //产生信号量的组id
+    kgid_t		cgid;
+    umode_t		mode;
+    //序号,在分配IPC对象时使用
+    unsigned long	seq;
+    void		*security;
+};
+
+struct sembuf {
+//信号量集合中需要操作的信号量,信号量在数组中的索引
+    unsigned short  sem_num;	/* semaphore index in array */
+//所需的操作
+    short		sem_op;		/* semaphore operation */
+//精细控制操作
+    short		sem_flg;	/* operation flags */
+};
+#define sem_ids(ns)	((ns)->ids[IPC_SEM_IDS])
+
+
+struct ipc_ids {
+//保存了当前使用中的ipc对象数目
+    int in_use;
+//用于连续产生用户空间ipc id
+    unsigned short seq;
+    struct rw_semaphore rwsem;
+//用于将ID关联到指向对应的kern_ipc_perm实例的指针
+    struct idr ipcs_idr;
+    int next_id;
+};
+struct idr_layer {
+    int			prefix;	/* the ID prefix of this idr_layer */
+    int			layer;	/* distance from leaf */
+    struct idr_layer __rcu	*ary[1<<IDR_BITS];
+    int			count;	/* When zero, we can release it */
     union {
-        struct llist_node	fu_llist;
-        struct rcu_head 	fu_rcuhead;
-    } f_u;
-    struct path		f_path;
-#define f_dentry	f_path.dentry
-    struct inode		*f_inode;	/* cached value */
-    const struct file_operations	*f_op;
+        /* A zero bit means "space here" */
+        DECLARE_BITMAP(bitmap, IDR_SIZE);
+        struct rcu_head		rcu_head;
+    };
+};
+
+struct idr {
+    struct idr_layer __rcu	*hint;	/* the last layer allocated from */
+    struct idr_layer __rcu	*top;
+    int			layers;	/* only valid w/o concurrent changes */
+    int			cur;	/* current pos for cyclic allocation */
+    spinlock_t		lock;
+    int			id_free_cnt;
+    struct idr_layer	*id_free;
+};
+
+struct ipc_namespace {
+    atomic_t	count;
+//ids[0]是信号量,ids[1]是消息队列,ids[2]是共享内存.
+    struct ipc_ids	ids[3];
+
+    int		sem_ctls[4];
+    int		used_sems;
+
+    unsigned int	msg_ctlmax;
+    unsigned int	msg_ctlmnb;
+    unsigned int	msg_ctlmni;
+    atomic_t	msg_bytes;
+    atomic_t	msg_hdrs;
+
+    size_t		shm_ctlmax;
+    size_t		shm_ctlall;
+    unsigned long	shm_tot;
+    int		shm_ctlmni;
+    /*
+     * Defines whether IPC_RMID is forced for _all_ shm segments regardless
+     * of shmctl()
+     */
+    int		shm_rmid_forced;
+
+    struct notifier_block ipcns_nb;
+
+    /* The kern_mount of the mqueuefs sb.  We take a ref on it */
+    struct vfsmount	*mq_mnt;
+
+    /* # queues in this ns, protected by mq_lock */
+    unsigned int    mq_queues_count;
+
+    /* next fields are set through sysctl */
+    unsigned int    mq_queues_max;   /* initialized to DFLT_QUEUESMAX */
+    unsigned int    mq_msg_max;      /* initialized to DFLT_MSGMAX */
+    unsigned int    mq_msgsize_max;  /* initialized to DFLT_MSGSIZEMAX */
+    unsigned int    mq_msg_default;
+    unsigned int    mq_msgsize_default;
+
+    /* user_ns which owns the ipc ns */
+    struct user_namespace *user_ns;
+
+    struct ns_common ns;
+};
+
+
+
+
+
+
+struct task_struct {
+    volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
+    void *stack;
+    atomic_t usage;
+    unsigned int flags;	/* per process flags, defined below */
+    unsigned int ptrace;
+
+#ifdef CONFIG_SMP
+    struct llist_node wake_entry;
+    int on_cpu;
+    unsigned int wakee_flips;
+    unsigned long wakee_flip_decay_ts;
+    struct task_struct *last_wakee;
+
+    int wake_cpu;
+#endif
+    int on_rq;
+
+    int prio, static_prio, normal_prio;
+    unsigned int rt_priority;
+    const struct sched_class *sched_class;
+    struct sched_entity se;
+    struct sched_rt_entity rt;
+#ifdef CONFIG_CGROUP_SCHED
+    struct task_group *sched_task_group;
+#endif
+    struct sched_dl_entity dl;
+
+#ifdef CONFIG_PREEMPT_NOTIFIERS
+    /* list of struct preempt_notifier: */
+    struct hlist_head preempt_notifiers;
+#endif
+
+#ifdef CONFIG_BLK_DEV_IO_TRACE
+    unsigned int btrace_seq;
+#endif
+
+    unsigned int policy;
+    int nr_cpus_allowed;
+    cpumask_t cpus_allowed;
+
+#ifdef CONFIG_PREEMPT_RCU
+    int rcu_read_lock_nesting;
+    union rcu_special rcu_read_unlock_special;
+    struct list_head rcu_node_entry;
+    struct rcu_node *rcu_blocked_node;
+#endif /* #ifdef CONFIG_PREEMPT_RCU */
+#ifdef CONFIG_TASKS_RCU
+    unsigned long rcu_tasks_nvcsw;
+    bool rcu_tasks_holdout;
+    struct list_head rcu_tasks_holdout_list;
+    int rcu_tasks_idle_cpu;
+#endif /* #ifdef CONFIG_TASKS_RCU */
+
+#ifdef CONFIG_SCHED_INFO
+    struct sched_info sched_info;
+#endif
+
+    struct list_head tasks;
+#ifdef CONFIG_SMP
+    struct plist_node pushable_tasks;
+    struct rb_node pushable_dl_tasks;
+#endif
+
+    struct mm_struct *mm, *active_mm;
+    /* per-thread vma caching */
+    u32 vmacache_seqnum;
+    struct vm_area_struct *vmacache[VMACACHE_SIZE];
+#if defined(SPLIT_RSS_COUNTING)
+    struct task_rss_stat	rss_stat;
+#endif
+/* task state */
+    int exit_state;
+    int exit_code, exit_signal;
+    int pdeath_signal;  /*  The signal sent when the parent dies  */
+    unsigned long jobctl;	/* JOBCTL_*, siglock protected */
+
+    /* Used for emulating ABI behavior of previous Linux versions */
+    unsigned int personality;
+
+    /* scheduler bits, serialized by scheduler locks */
+    unsigned sched_reset_on_fork:1;
+    unsigned sched_contributes_to_load:1;
+    unsigned sched_migrated:1;
+    unsigned :0; /* force alignment to the next boundary */
+
+    /* unserialized, strictly 'current' */
+    unsigned in_execve:1; /* bit to tell LSMs we're in execve */
+    unsigned in_iowait:1;
+#ifdef CONFIG_MEMCG
+    unsigned memcg_may_oom:1;
+#ifndef CONFIG_SLOB
+    unsigned memcg_kmem_skip_account:1;
+#endif
+#endif
+#ifdef CONFIG_COMPAT_BRK
+    unsigned brk_randomized:1;
+#endif
+
+    unsigned long atomic_flags; /* Flags needing atomic access. */
+
+    struct restart_block restart_block;
+
+    pid_t pid;
+    pid_t tgid;
+
+#ifdef CONFIG_CC_STACKPROTECTOR
+    /* Canary value for the -fstack-protector gcc feature */
+    unsigned long stack_canary;
+#endif
+    /*
+     * pointers to (original) parent process, youngest child, younger sibling,
+     * older sibling, respectively.  (p->father can be replaced with
+     * p->real_parent->pid)
+     */
+    struct task_struct __rcu *real_parent; /* real parent process */
+    struct task_struct __rcu *parent; /* recipient of SIGCHLD, wait4() reports */
+    /*
+     * children/sibling forms the list of my natural children
+     */
+    struct list_head children;	/* list of my children */
+    struct list_head sibling;	/* linkage in my parent's children list */
+    struct task_struct *group_leader;	/* threadgroup leader */
 
     /*
-     * Protects f_ep_links, f_flags.
-     * Must not be taken from IRQ context.
+     * ptraced is the list of tasks this task is using ptrace on.
+     * This includes both natural children and PTRACE_ATTACH targets.
+     * p->ptrace_entry is p's link on the p->parent->ptraced list.
      */
-    spinlock_t		f_lock;
-    atomic_long_t		f_count;
-    unsigned int 		f_flags;
-    fmode_t			f_mode;
-    struct mutex		f_pos_lock;
-    loff_t			f_pos;
-    struct fown_struct	f_owner;
-    const struct cred	*f_cred;
-    struct file_ra_state	f_ra;
+    struct list_head ptraced;
+    struct list_head ptrace_entry;
 
-    u64			f_version;
-#ifdef CONFIG_SECURITY
-    void			*f_security;
+    /* PID/PID hash table linkage. */
+    struct pid_link pids[PIDTYPE_MAX];
+    struct list_head thread_group;
+    struct list_head thread_node;
+
+    struct completion *vfork_done;		/* for vfork() */
+    int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
+    int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
+
+    cputime_t utime, stime, utimescaled, stimescaled;
+    cputime_t gtime;
+    struct prev_cputime prev_cputime;
+#ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
+    seqcount_t vtime_seqcount;
+    unsigned long long vtime_snap;
+    enum {
+        /* Task is sleeping or running in a CPU with VTIME inactive */
+        VTIME_INACTIVE = 0,
+        /* Task runs in userspace in a CPU with VTIME active */
+        VTIME_USER,
+        /* Task runs in kernelspace in a CPU with VTIME active */
+        VTIME_SYS,
+    } vtime_snap_whence;
 #endif
-    /* needed for tty driver, and maybe others */
-    void			*private_data;
 
-#ifdef CONFIG_EPOLL
-    /* Used by fs/eventpoll.c to link all the hooks to this file */
-    struct list_head	f_ep_links;
-    struct list_head	f_tfile_llink;
-#endif /* #ifdef CONFIG_EPOLL */
-    struct address_space	*f_mapping;
-#ifdef CONFIG_DEBUG_WRITECOUNT
-    unsigned long f_mnt_write_state;
+#ifdef CONFIG_NO_HZ_FULL
+    atomic_t tick_dep_mask;
 #endif
-} __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
+    unsigned long nvcsw, nivcsw; /* context switch counts */
+    u64 start_time;		/* monotonic time in nsec */
+    u64 real_start_time;	/* boot based time in nsec */
+/* mm fault and swap info: this can arguably be seen as either mm-specific or thread-specific */
+    unsigned long min_flt, maj_flt;
 
+    struct task_cputime cputime_expires;
+    struct list_head cpu_timers[3];
+
+/* process credentials */
+    const struct cred __rcu *real_cred; /* objective and real subjective task
+                     * credentials (COW) */
+    const struct cred __rcu *cred;	/* effective (overridable) subjective task
+                     * credentials (COW) */
+    char comm[TASK_COMM_LEN]; /* executable name excluding path
+                     - access with [gs]et_task_comm (which lock
+                       it with task_lock())
+                     - initialized normally by setup_new_exec */
+/* file system info */
+    struct nameidata *nameidata;
+#ifdef CONFIG_SYSVIPC
+/* ipc stuff */
+    struct sysv_sem sysvsem;
+    struct sysv_shm sysvshm;
+#endif
+#ifdef CONFIG_DETECT_HUNG_TASK
+/* hung task detection */
+    unsigned long last_switch_count;
+#endif
+/* filesystem information */
+    struct fs_struct *fs;
+/* open file information */
+    struct files_struct *files;
+/* namespaces */
+    struct nsproxy *nsproxy;
+/* signal handlers */
+    struct signal_struct *signal;
+    struct sighand_struct *sighand;
+
+    sigset_t blocked, real_blocked;
+    sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
+    struct sigpending pending;
+
+    unsigned long sas_ss_sp;
+    size_t sas_ss_size;
+
+    struct callback_head *task_works;
+
+    struct audit_context *audit_context;
+#ifdef CONFIG_AUDITSYSCALL
+    kuid_t loginuid;
+    unsigned int sessionid;
+#endif
+    struct seccomp seccomp;
+
+/* Thread group tracking */
+    u32 parent_exec_id;
+    u32 self_exec_id;
+/* Protection of (de-)allocation: mm, files, fs, tty, keyrings, mems_allowed,
+ * mempolicy */
+    spinlock_t alloc_lock;
+
+    /* Protection of the PI data structures: */
+    raw_spinlock_t pi_lock;
+
+    struct wake_q_node wake_q;
+
+#ifdef CONFIG_RT_MUTEXES
+    /* PI waiters blocked on a rt_mutex held by this task */
+    struct rb_root pi_waiters;
+    struct rb_node *pi_waiters_leftmost;
+    /* Deadlock detection and priority inheritance handling */
+    struct rt_mutex_waiter *pi_blocked_on;
+#endif
+
+#ifdef CONFIG_DEBUG_MUTEXES
+    /* mutex deadlock detection */
+    struct mutex_waiter *blocked_on;
+#endif
+#ifdef CONFIG_TRACE_IRQFLAGS
+    unsigned int irq_events;
+    unsigned long hardirq_enable_ip;
+    unsigned long hardirq_disable_ip;
+    unsigned int hardirq_enable_event;
+    unsigned int hardirq_disable_event;
+    int hardirqs_enabled;
+    int hardirq_context;
+    unsigned long softirq_disable_ip;
+    unsigned long softirq_enable_ip;
+    unsigned int softirq_disable_event;
+    unsigned int softirq_enable_event;
+    int softirqs_enabled;
+    int softirq_context;
+#endif
+#ifdef CONFIG_LOCKDEP
+# define MAX_LOCK_DEPTH 48UL
+    u64 curr_chain_key;
+    int lockdep_depth;
+    unsigned int lockdep_recursion;
+    struct held_lock held_locks[MAX_LOCK_DEPTH];
+    gfp_t lockdep_reclaim_gfp;
+#endif
+#ifdef CONFIG_UBSAN
+    unsigned int in_ubsan;
+#endif
+
+/* journalling filesystem info */
+    void *journal_info;
+
+/* stacked block device info */
+    struct bio_list *bio_list;
+
+#ifdef CONFIG_BLOCK
+/* stack plugging */
+    struct blk_plug *plug;
+#endif
+
+/* VM state */
+    struct reclaim_state *reclaim_state;
+
+    struct backing_dev_info *backing_dev_info;
+
+    struct io_context *io_context;
+
+    unsigned long ptrace_message;
+    siginfo_t *last_siginfo; /* For ptrace use.  */
+    struct task_io_accounting ioac;
+#if defined(CONFIG_TASK_XACCT)
+    u64 acct_rss_mem1;	/* accumulated rss usage */
+    u64 acct_vm_mem1;	/* accumulated virtual memory usage */
+    cputime_t acct_timexpd;	/* stime + utime since last update */
+#endif
+#ifdef CONFIG_CPUSETS
+    nodemask_t mems_allowed;	/* Protected by alloc_lock */
+    seqcount_t mems_allowed_seq;	/* Seqence no to catch updates */
+    int cpuset_mem_spread_rotor;
+    int cpuset_slab_spread_rotor;
+#endif
+#ifdef CONFIG_CGROUPS
+    /* Control Group info protected by css_set_lock */
+    struct css_set __rcu *cgroups;
+    /* cg_list protected by css_set_lock and tsk->alloc_lock */
+    struct list_head cg_list;
+#endif
+#ifdef CONFIG_FUTEX
+    struct robust_list_head __user *robust_list;
+#ifdef CONFIG_COMPAT
+    struct compat_robust_list_head __user *compat_robust_list;
+#endif
+    struct list_head pi_state_list;
+    struct futex_pi_state *pi_state_cache;
+#endif
+#ifdef CONFIG_PERF_EVENTS
+    struct perf_event_context *perf_event_ctxp[perf_nr_task_contexts];
+    struct mutex perf_event_mutex;
+    struct list_head perf_event_list;
+#endif
+#ifdef CONFIG_DEBUG_PREEMPT
+    unsigned long preempt_disable_ip;
+#endif
+#ifdef CONFIG_NUMA
+    struct mempolicy *mempolicy;	/* Protected by alloc_lock */
+    short il_next;
+    short pref_node_fork;
+#endif
+#ifdef CONFIG_NUMA_BALANCING
+    int numa_scan_seq;
+    unsigned int numa_scan_period;
+    unsigned int numa_scan_period_max;
+    int numa_preferred_nid;
+    unsigned long numa_migrate_retry;
+    u64 node_stamp;			/* migration stamp  */
+    u64 last_task_numa_placement;
+    u64 last_sum_exec_runtime;
+    struct callback_head numa_work;
+
+    struct list_head numa_entry;
+    struct numa_group *numa_group;
+
+    /*
+     * numa_faults is an array split into four regions:
+     * faults_memory, faults_cpu, faults_memory_buffer, faults_cpu_buffer
+     * in this precise order.
+     *
+     * faults_memory: Exponential decaying average of faults on a per-node
+     * basis. Scheduling placement decisions are made based on these
+     * counts. The values remain static for the duration of a PTE scan.
+     * faults_cpu: Track the nodes the process was running on when a NUMA
+     * hinting fault was incurred.
+     * faults_memory_buffer and faults_cpu_buffer: Record faults per node
+     * during the current scan window. When the scan completes, the counts
+     * in faults_memory and faults_cpu decay and these values are copied.
+     */
+    unsigned long *numa_faults;
+    unsigned long total_numa_faults;
+
+    /*
+     * numa_faults_locality tracks if faults recorded during the last
+     * scan window were remote/local or failed to migrate. The task scan
+     * period is adapted based on the locality of the faults with different
+     * weights depending on whether they were shared or private faults
+     */
+    unsigned long numa_faults_locality[3];
+
+    unsigned long numa_pages_migrated;
+#endif /* CONFIG_NUMA_BALANCING */
+
+#ifdef CONFIG_ARCH_WANT_BATCHED_UNMAP_TLB_FLUSH
+    struct tlbflush_unmap_batch tlb_ubc;
+#endif
+
+    struct rcu_head rcu;
+
+    /*
+     * cache last used pipe for splice
+     */
+    struct pipe_inode_info *splice_pipe;
+
+    struct page_frag task_frag;
+
+#ifdef	CONFIG_TASK_DELAY_ACCT
+    struct task_delay_info *delays;
+#endif
+#ifdef CONFIG_FAULT_INJECTION
+    int make_it_fail;
+#endif
+    /*
+     * when (nr_dirtied >= nr_dirtied_pause), it's time to call
+     * balance_dirty_pages() for some dirty throttling pause
+     */
+    int nr_dirtied;
+    int nr_dirtied_pause;
+    unsigned long dirty_paused_when; /* start of a write-and-pause period */
+
+#ifdef CONFIG_LATENCYTOP
+    int latency_record_count;
+    struct latency_record latency_record[LT_SAVECOUNT];
+#endif
+    /*
+     * time slack values; these are used to round up poll() and
+     * select() etc timeout values. These are in nanoseconds.
+     */
+    u64 timer_slack_ns;
+    u64 default_timer_slack_ns;
+
+#ifdef CONFIG_KASAN
+    unsigned int kasan_depth;
+#endif
+#ifdef CONFIG_FUNCTION_GRAPH_TRACER
+    /* Index of current stored address in ret_stack */
+    int curr_ret_stack;
+    /* Stack of return addresses for return function tracing */
+    struct ftrace_ret_stack	*ret_stack;
+    /* time stamp for last schedule */
+    unsigned long long ftrace_timestamp;
+    /*
+     * Number of functions that haven't been traced
+     * because of depth overrun.
+     */
+    atomic_t trace_overrun;
+    /* Pause for the tracing */
+    atomic_t tracing_graph_pause;
+#endif
+#ifdef CONFIG_TRACING
+    /* state flags for use by tracers */
+    unsigned long trace;
+    /* bitmask and counter of trace recursion */
+    unsigned long trace_recursion;
+#endif /* CONFIG_TRACING */
+#ifdef CONFIG_KCOV
+    /* Coverage collection mode enabled for this task (0 if disabled). */
+    enum kcov_mode kcov_mode;
+    /* Size of the kcov_area. */
+    unsigned	kcov_size;
+    /* Buffer for coverage collection. */
+    void		*kcov_area;
+    /* kcov desciptor wired with this task or NULL. */
+    struct kcov	*kcov;
+#endif
+#ifdef CONFIG_MEMCG
+    struct mem_cgroup *memcg_in_oom;
+    gfp_t memcg_oom_gfp_mask;
+    int memcg_oom_order;
+
+    /* number of pages to reclaim on returning to userland */
+    unsigned int memcg_nr_pages_over_high;
+#endif
+#ifdef CONFIG_UPROBES
+    struct uprobe_task *utask;
+#endif
+#if defined(CONFIG_BCACHE) || defined(CONFIG_BCACHE_MODULE)
+    unsigned int	sequential_io;
+    unsigned int	sequential_io_avg;
+#endif
+#ifdef CONFIG_DEBUG_ATOMIC_SLEEP
+    unsigned long	task_state_change;
+#endif
+    int pagefault_disabled;
+#ifdef CONFIG_MMU
+    struct task_struct *oom_reaper_list;
+#endif
+/* CPU-specific state of this task */
+    struct thread_struct thread;
+/*
+ * WARNING: on x86, 'thread_struct' contains a variable-sized
+ * structure.  It *MUST* be at the end of 'task_struct'.
+ *
+ * Do not put anything below here!
+ */
+};
 
 #+END_SRC

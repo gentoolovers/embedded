@@ -6,51 +6,74 @@ uname -r: 查看内核版本(-a)信息更全
 ** pstree
 pstree: 以树形显示出进程间的关系   
 ** dpkg
-dpkg -L <package>:  列出安装软件信息  
-dpkg -s <package>:  状态   
-dpkg -i <package>:  安装  
+dpkg -L <package>:  列出安装软件信息
+
+dpkg -s <package>:  状态
+
+dpkg -i <package>:  安装
+
 dpkg -p <package>:  删除,包括依赖  
 ** 软件源
-软件源配置文件: /etc/apt/sources.list  
-本地软件资源列表:/var/lib/apt/lists  
+软件源配置文件: /etc/apt/sources.list
+
+本地软件资源列表:/var/lib/apt/lists
+
 软件缓冲区,即 apt-get install 目录:/var/cache/apt/archives  
 ** apt
-apt-get      install <package>            :安装软件  
-apt-get      remove --purge <package>     :彻底删除        
-apt-cache    policy <package>             :查询安装状态  
-apt-cache    depends                      :查询安装状态   
-apt-cache    redpends                     :查询被哪些安装包依赖   
-apt-cache    search                       :查找软件包   
+apt-get      install <package>            :安装软件
+
+apt-get      remove --purge <package>     :彻底删除
+
+apt-cache    policy <package>             :查询安装状态
+
+apt-cache    depends                      :查询安装状态
+
+apt-cache    redpends                     :查询被哪些安装包依赖
+
+apt-cache    search                       :查找软件包
+
 apt-cache    show                         :获取软件包详细信息   
 ** 重定向
-2> :输出错误信息  
-&> :正确与错误都重定向  
->> :追加在文件后面  
+2> :输出错误信息
+
+&> :正确与错误都重定向
+
+>> :追加在文件后面
+
 >  :相当于新建文件  
 ** df
-df [-a|-T|-h|-k] Filesystem : 查看磁盘空间  
-    -a : 显示所有物理文件系统使用情况  
-    -h : 以兆字节显示  
-    -T : 显示文件系统类型  
+df [-a|-T|-h|-k] Filesystem : 查看磁盘空间
+
+    -a : 显示所有物理文件系统使用情况
+
+    -h : 以兆字节显示
+
+    -T : 显示文件系统类型
+
     -k : 以千字节为单位显示  
 ** du
 du:查看目录  
 ** od
 od -c 查看文件字符数  
 ** grep
-grep "xxx" * -nR :在当前目录下递归查找 xxx ,-n 为显示行号  
+grep "xxx" * -nR :在当前目录下递归查找 xxx ,-n 为显示行号
+
 grep "^xxx" /usr  -nR :在/user 目录下查找以 xxx 开头的行
 ** find
 find ./ -name "*.o" -exec rm {}
 * 第二天<2016-07-18 Mon>
 ** 用户管理
 *** 用户相关文件
-/etc/adduser.conf :用户属性默认值  
-/etc/shadow       :用户密码相关  
-/etc/passwd  
+/etc/adduser.conf :用户属性默认值
+
+/etc/shadow       :用户密码相关
+
+/etc/passwd
+
 /etc/group  
 *** 用户相关命令
-id :查看当前登录用户的属性  
+id :查看当前登录用户的属性
+
 man 5:查看文件  
 **** 新建用户
 adduser --ingroup test test:新建 test 用户,加入 test 组  
@@ -68,20 +91,32 @@ deluser --remove-home user  :删 user 用户同时删除家目录
 delgroup groupname  
 ** 进程管理
 *** 进程状态标志
-D: 不可中断的静止  
-R:正在执行中  
-S:阻塞状态  
-T:暂停执行  
-Z:不存在但暂时无法消除  
-<:高级优先的进程  
-N:低优先级的进程  
+D: 不可中断的静止
+
+R:正在执行中
+
+S:阻塞状态
+
+T:暂停执行
+
+Z:不存在但暂时无法消除
+
+<:高级优先的进程
+
+N:低优先级的进程
+
 L:有内存分页分配并锁在内存中  
 *** ps 
-ps :查看进程  
-  -A   列出所有进程  
-  -au  显示较为详细的资讯   
-  -aux 显示所有包含其他使用者的进程  
-ps -ef | grep "a.out" 查看 a.out 进程  
+ps :查看进程
+
+  -A   列出所有进程
+
+  -au  显示较为详细的资讯
+
+  -aux 显示所有包含其他使用者的进程
+
+ps -ef | grep "a.out" 查看 a.out 进程
+
 ps -aux | grep "a.out" 查看 a.out 进程的状态  
 *** top
 top :监视进程  
@@ -97,8 +132,10 @@ top :监视进程
 *** 字符串裁剪 
 cut -d "分割符,如(:)" -f <区域>  <要操作的文件>   
 *** 只显示文件第 n 行
-head -n <文件名> | tail -1  
-grep "^root:" /etc/passwd -n | cut -d ":" -f 1  
+head -n <文件名> | tail -1
+
+grep "^root:" /etc/passwd -n | cut -d ":" -f 1
+
 cut -d ":" -f 1 /etc/passwd | grep "^linux$" -n |cut -d ":" -f 1  
 *** 文件权限
  umask :文件权限掩码(以 002 为例)  
@@ -109,10 +146,12 @@ cut -d ":" -f 1 /etc/passwd | grep "^linux$" -n |cut -d ":" -f 1
 | =  
 | 110  | 110 | 100    |      
 **** chown  
- chown:修改文件拥有者,以及所属组  
+ chown:修改文件拥有者,以及所属组
+
  chown newuser:newgroup file  
 **** chgrp
-chgrp <组名> 文件   
+chgrp <组名> 文件
+
 *** 链接文件
 **** 软链接
 ln -s target link_name  
@@ -121,8 +160,10 @@ ln -s target link_name
 + 目标文件最好用绝对路径  
 + 软链接是新文件,有新的 inode 编号  
 **** 硬链接
-ln target link_name   
-文件重命名,同时操作 target 和 link_name   
+ln target link_name
+ 
+文件重命名,同时操作 target 和 link_name
+
 硬链接不可以跨文件系统   
 
 * 第三天<2016-07-19 Tue>
@@ -136,7 +177,8 @@ ln target link_name
 ** read
 read var :从标准输入中读取一行,并复制给变量(var)  
 ** expr
-算术运算符两边必须有空格  
+算术运算符两边必须有空格
+
 乘法需要转义  
 ** 字符串测试
 + s1=s2 :测试字符串是否完全一样
@@ -163,29 +205,45 @@ read var :从标准输入中读取一行,并复制给变量(var)
 + f1 -ot f2 :测试 f1 是否比 f2 旧
 ** if
 （一）基本结构 if…then…fi
+
          语法结构:
+
          if    表达式
-         		then  命令表
+
+                then  命令表
+
          fi     
 
 ** case
  case   字符串变量   in
+
             模式 1)
+
                        命令表 1
+
                         ;;
-            模式 2 | 模式 3)   
+
+            模式 2 | 模式 3)
+
                        命令表 2
+
                         ;;
              ……
             模式 n)
+
                        命令表 n
+
                         ;;
      esac
 ** for 
  语法格式：
-			  for   变量名   in   单词表
+
+              for   变量名   in   单词表
+
               do
+
                       命令表
+
                done
 
 如果单词表是命令行上的所有位置参数时, 可以在 for 语句中
@@ -198,7 +256,7 @@ for (( ;; )) :表示死循环
                                        命令表
                               done
 ** 函数 
-	function_name ( )
+    function_name ( )
 	 {
 				command1
 				……
@@ -415,39 +473,56 @@ for (( ;; )) :表示死循环
 + 指针加 N 表示移动 N 个数据
 ** 指针与数组 
 a[i]---*(a+i)---*(p+i)---p[i]
-字符串常量:存储在静态区,不能修改,程序结束释放内存.  
-指针数组是一个数组,数组中的每个元素是一个指针    
-一维数组名相当于一维常量指针  
+
+字符串常量:存储在静态区,不能修改,程序结束释放内存.
+
+指针数组是一个数组,数组中的每个元素是一个指针
+
+一维数组名相当于一维常量指针
+
 二维数组名代表数组的行地址  
 ** 指针函数
-指针函数就是返回值为指针的特殊函数  
-可以返回的类型有:  
-                字符串常量的地址  
-                堆上的地址  
-                静太变量的地址  
+指针函数就是返回值为指针的特殊函数
+
+可以返回的类型有:
+
+                字符串常量的地址
+
+                堆上的地址
+
+                静太变量的地址
+
 不可以返回:
+
           局部变量的地址  
 ** 函数指针 
 把函数做成一个指针传给其它函数,用的时候把实际需要的函数名
-(函数入口地址)复制给指针      
-函数指针变量说明的一般形式如下:  
+(函数入口地址)复制给指针
+函数指针变量说明的一般形式如下:
 <数据类型> (*<函数指针名称>) (<参数说明列表<);  
 ** 结构体
-结构体的本质为自定义数据类型  
-typedef 原类型 新名字   
+结构体的本质为自定义数据类型
+
+typedef 原类型 新名字
+
 typedef unsigned int UINT;
-typedef struct 结构体名{  
-	   .....  
+
+typedef struct 结构体名{
+
+       .....
+
 	   }新名字；  
 +  "新名字": 不加 typedef 表示变量,加表示类型  
 ** 变量的存储类型
-寄存器变量，没有地址  
+寄存器变量，没有地址
+
 static 修饰局部变量：  
 +  如未明确初始化，它的字节将被设定为 0
 +  初始化一次
 +  具有静态存储时期（程序结束释放内存）
 
-extern:访问其它文件的全句变量时，需要先用 extern 声明（var.c var2.c)  
+extern:访问其它文件的全句变量时，需要先用 extern 声明（var.c var2.c)
+
 static 修饰全局变量：该变量只能当前文件访问。
 ** 动态内存
  		malloc:  

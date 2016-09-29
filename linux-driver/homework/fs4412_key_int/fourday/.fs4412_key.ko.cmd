@@ -1,0 +1,1 @@
+cmd_/home/linux/toolchain/driver_lensson/fourday/fs4412_key.ko := arm-linux-ld -EL -r  -T /home/linux/toolchain/linux-3.14/scripts/module-common.lds --build-id  -o /home/linux/toolchain/driver_lensson/fourday/fs4412_key.ko /home/linux/toolchain/driver_lensson/fourday/fs4412_key.o /home/linux/toolchain/driver_lensson/fourday/fs4412_key.mod.o

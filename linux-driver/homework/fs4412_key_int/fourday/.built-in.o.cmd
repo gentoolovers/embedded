@@ -1,0 +1,1 @@
+cmd_/home/linux/toolchain/driver_lensson/fourday/built-in.o :=  rm -f /home/linux/toolchain/driver_lensson/fourday/built-in.o; arm-linux-ar rcsD /home/linux/toolchain/driver_lensson/fourday/built-in.o

@@ -334,7 +334,7 @@ ln -s ../arch/arm/include/asm  asm
 
 BOARDDIR = fs4412
 ** uboot移植流程图
-[[file:./picture/uboot2013内存分布.jpg][uboot2013内存分布图]]
+[[file:./picture/uboot2013内存分布.jpg][uboot2013内存分布图]
 [[file:./picture/uboot2013配置流程.jpg][uboot2013配置流程图]]
 [[file:./picture/uboot2013编译流程.jpg][uboot2013编译流程图]]
 [[file:./picture/uboot2013启动流程.jpg][uboot2013启动流程图]]

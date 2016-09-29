@@ -1,6 +1,6 @@
 $(warning KERNELRELEASE=$(KERNELRELEASE))
 ifeq ($(KERNELRELEASE),)
-KERNELDIR ?=/home/linux/source-code/4412/linux-3.14
+KERNELDIR ?=~/source-code/4412/linux-3.14
 #KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD :=$(shell pwd)
 

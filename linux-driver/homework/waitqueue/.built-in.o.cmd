@@ -1,0 +1,1 @@
+cmd_/home/linux/github/embedded/linux-driver/homework/waitqueue/built-in.o :=  rm -f /home/linux/github/embedded/linux-driver/homework/waitqueue/built-in.o; ar rcsD /home/linux/github/embedded/linux-driver/homework/waitqueue/built-in.o
